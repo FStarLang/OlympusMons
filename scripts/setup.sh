@@ -7,6 +7,10 @@
 
 source "$(dirname "$0")/lib.sh"
 
+# A fresh opam installation (e.g. on a new CI runner), set up as F*'s CI does.
+if [ ! -d "${OPAMROOT:-$HOME/.opam}" ]; then
+  opam init -y --bare --disable-sandboxing --no-setup
+fi
 if ! opam switch list --short | grep -qx "$OLYMPUS_OPAM_SWITCH"; then
   opam switch create -y "$OLYMPUS_OPAM_SWITCH" 5.3.0 --no-switch
 fi

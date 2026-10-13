@@ -1,0 +1,101 @@
+# Build F* and every project at the commits recorded in hashes.txt, from
+# scratch (`make -k CLEAN=1`, see README.md). This takes hours even on a big
+# machine, so it runs on a self-hosted runner with the label `olympus` (see
+# "Continuous integration" in README.md).
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One build at a time per branch or pull request. A new push to a pull
+# request cancels its running build; builds of main are never cancelled.
+concurrency:
+  group: build-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    name: F* and all projects
+    # Never run code from a fork on the self-hosted runner.
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, linux, x64, olympus]
+    timeout-minutes: 720
+    defaults:
+      run:
+        shell: bash
+    steps:
+      # By default (clean: true), this also deletes the previous build in
+      # _work, so each build starts from scratch.
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Check the runner's prerequisites
+        run: |
+          if [ -d "$HOME/.cargo/bin" ]; then
+            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+            export PATH="$HOME/.cargo/bin:$PATH"
+          fi
+          missing=
+          for c in opam gh git make gcc clang++ llvm-config-20 clang-format \
+                   cargo rustfmt dotnet python3 cmake jq unzip /usr/bin/time; do
+            command -v "$c" > /dev/null || missing="$missing $c"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing on this runner:$missing (see README.md)"
+            exit 1
+          fi
+
+      - name: Set up opam and Z3
+        run: scripts/setup.sh
+
+      - name: Build
+        timeout-minutes: 690
+        env:
+          # Read access to the private project repositories (hacl-pulse),
+          # for scripts/checkout.sh. Without this secret, the runner's own
+          # `gh auth login` is used.
+          GH_TOKEN: ${{ secrets.OLYMPUS_GH_TOKEN }}
+          # The number of parallel jobs (default: the number of cores).
+          OLYMPUS_JOBS: ${{ vars.OLYMPUS_JOBS }}
+        run: make -k -j"${OLYMPUS_JOBS:-$(nproc)}" CLEAN=1
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo '### Build results'
+            echo '```'
+            scripts/status.sh
+            echo '```'
+            for f in _work/status/*; do
+              [ -e "$f" ] || continue
+              read -r result _ < "$f"
+              if [ "$result" != ok ]; then
+                t=${f##*/}
+                echo "<details><summary>End of the log of $t</summary>"
+                echo
+                echo '```'
+                tail -n 100 "_work/logs/$t.log"
+                echo '```'
+                echo '</details>'
+              fi
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the logs
+        if: failure() || cancelled()
+        uses: actions/upload-artifact@v7
+        with:
+          name: logs-${{ github.run_attempt }}
+          path: _work/logs/
+          retention-days: 7
+          if-no-files-found: ignore

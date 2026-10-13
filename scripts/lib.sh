@@ -67,6 +67,8 @@ base_env () {
   export PATH="$Z3_BIN:$PATH"
   # Builds must succeed without proof recovery or other leniency.
   unset OTHERFLAGS FSTAR_EXE FSTAR_HOME FSTAR_ROOT KRML_EXE KRML_HOME PULSE_ROOT
+  # A GitHub token in the environment (e.g. in CI) is only for checkout.sh.
+  unset GH_TOKEN GITHUB_TOKEN
 }
 
 # Environment for building a downstream project against the OlympusMons F*.

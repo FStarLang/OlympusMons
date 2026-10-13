@@ -43,8 +43,11 @@ proofs or weaken specifications.
 ## Building
 
 Prerequisites: [opam](https://opam.ocaml.org/), a C toolchain (with 32-bit
-support, for EverParse's tests), clang-format, Rust (for pal), and the GitHub
-CLI `gh` (logged in) to clone the private repositories.
+support, for EverParse's tests), clang/LLVM 20 and clang-format 20 (for pal),
+Rust (for pal and EverParse), .NET 10 (for F*'s tests), and the GitHub CLI
+`gh` (logged in) to clone the private repositories. On Ubuntu 24.04,
+`sudo scripts/install-system-deps.sh` installs all of them but Rust, which is
+best installed with [rustup](https://rustup.rs).
 
 One-time setup, an opam switch (`olympus`) with the OCaml packages that F*
 and the projects need, and the Z3 versions that they use:
@@ -80,3 +83,37 @@ To move F* (or a project) forward: change its commit in `hashes.txt`, run
 `make -k -j$(nproc) CLEAN=1`, and fix any project that fails on (a new commit
 of) its `olympus` branch. Only commit the new `hashes.txt` when everything
 builds.
+
+## Continuous integration
+
+[`.github/workflows/build.yml`](.github/workflows/build.yml) builds everything
+from scratch (`scripts/setup.sh`, then `make -k CLEAN=1`) on every push to
+`main`, on every pull request (except from forks), and on demand (`gh workflow
+run Build`). The job summary shows `make status` and the end of the log of
+each failed build; the logs are also uploaded when the build fails. A new push
+to a pull request cancels its running build.
+
+A full build takes about 130 CPU-hours and a few hours even on a big machine,
+far beyond GitHub's hosted runners for private repositories, so the workflow
+runs on a self-hosted runner with the label `olympus`. **Keep this repository
+private**: on a public repository, anyone could run code on that runner with
+a pull request.
+
+To set up a runner, on a machine with Ubuntu 24.04 and 100 GB of free disk:
+
+1. Create a user for the runner, and run `sudo scripts/install-system-deps.sh`
+   (from a clone of this repository).
+2. As that user, install Rust with [rustup](https://rustup.rs).
+3. In this repository's Settings > Actions > Runners, add a new self-hosted
+   runner (Linux, x64) and follow the instructions as that user, adding
+   `--labels olympus` to `./config.sh`. Then, rather than `./run.sh`, install
+   it as a service: `sudo ./svc.sh install <user>` and `sudo ./svc.sh start`.
+4. Give the builds read access to the private projects (hacl-pulse): either
+   store a fine-grained personal access token (resource owner FStarLang,
+   repository access to FStarLang/hacl-pulse only, permission "Contents:
+   read-only") as the repository secret `OLYMPUS_GH_TOKEN`, or run `gh auth
+   login` as the runner's user.
+
+The opam switch is created (in the runner user's `~/.opam`) by the first
+build. The repository variable `OLYMPUS_JOBS` sets the number of parallel jobs
+(default: the number of cores).
