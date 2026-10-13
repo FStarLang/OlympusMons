@@ -3,13 +3,16 @@
 # binary package in _work/fstar, which all downstream projects use. Also
 # snapshot the parts of the F* source tree that some projects need, so
 # that they do not depend on the F* tree, where F*'s own CI may be running.
+# An existing package built from the current commit is reused, unless
+# CLEAN=1.
 
 source "$(dirname "$0")/../lib.sh"
 base_env
 cd "$(src_dir FStar)"
 
 rev=$(git rev-parse HEAD)
-if [ -z "$(git status --porcelain --untracked-files=no)" ] \
+if [ "${CLEAN:-0}" != 1 ] \
+   && [ -z "$(git status --porcelain --untracked-files=no)" ] \
    && [ "$(cat "$FSTAR_PKG/.olympus-rev" 2> /dev/null)" = "$rev" ]; then
   msg "FStar: $FSTAR_PKG is up to date"
   exit 0

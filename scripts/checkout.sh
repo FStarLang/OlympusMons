@@ -5,10 +5,10 @@
 # commit recorded in hashes.txt (or <rev>), detached. Refuses to touch a
 # working tree with local changes to tracked files, unless FORCE=1, which
 # discards them. CLEAN=1 also deletes all untracked and ignored files (build
-# products included), for a build from scratch. Submodules are not
-# initialized, except for F*'s own KaRaMeL submodule: OlympusMons overrides
-# any F*/KaRaMeL pins made by the downstream projects (but see
-# build/everparse.sh).
+# products included, also in F*'s KaRaMeL submodule), for a build from
+# scratch. Submodules are not initialized, except for F*'s own KaRaMeL
+# submodule: OlympusMons overrides any F*/KaRaMeL pins made by the
+# downstream projects (but see build/everparse.sh).
 
 source "$(dirname "$0")/lib.sh"
 
@@ -48,5 +48,9 @@ if [ "${CLEAN:-0}" = 1 ]; then
 fi
 if [ "$p" = FStar ]; then
   git_auth -C "$d" submodule update -q --init karamel
+  # git clean does not descend into submodules.
+  if [ "${CLEAN:-0}" = 1 ]; then
+    git -C "$d/karamel" clean -q -xffd
+  fi
 fi
 msg "$p: at $(git -C "$d" rev-parse --short=12 HEAD)"

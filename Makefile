@@ -9,7 +9,8 @@
 #                  a project) instead of checking out the recorded commits
 #   FORCE=1        discard local changes in _work/src when checking out
 #   CLEAN=1        delete untracked and ignored files (build products
-#                  included) when checking out, to build from scratch
+#                  included) when checking out, and rebuild the F*
+#                  package, to build from scratch
 #
 # Under a parallel make, all builds share its job slots.
 
