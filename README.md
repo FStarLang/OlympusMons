@@ -15,12 +15,16 @@ everparse:<commit>
 one `project:commit` per line (`#` starts a comment). **Every project builds
 at its recorded commit, against the F* (with its Pulse and KaRaMeL) at the
 recorded F* commit.** The projects' own pins of F*, KaRaMeL or Pulse
-(submodules, nightly releases, hashes files, ...) are ignored.
+(submodules, nightly releases, hashes files, ...) are ignored, with one
+exception: EverParse's code generation needs `krml` features that are only on
+a KaRaMeL branch, not in F*'s KaRaMeL submodule, so EverParse uses the `krml`
+of the KaRaMeL commit pinned in its own `opt/hashes.Makefile` (still with the
+recorded F*).
 
 | project | repository | what is built |
 |---|---|---|
 | FStar | [FStarLang/FStar](https://github.com/FStarLang/FStar) | stage 3 and a binary package; its CI target `make ci` |
-| everparse | [project-everest/everparse](https://github.com/project-everest/everparse) | the targets of its Linux CI (`ci.yml`, `cbor.yml`) |
+| everparse | [project-everest/everparse](https://github.com/project-everest/everparse) | the targets of its Linux CI (`ci.yml`, `cbor.yml`), with the `krml` of its own KaRaMeL pin (see above) |
 | pal | [FStarLang/pal](https://github.com/FStarLang/pal) | `make` and `make test`, as in its CI |
 | kuiper | [FStarLang/kuiper](https://github.com/FStarLang/kuiper) | `make verify` only: its extraction needs its own patched F* and KaRaMeL |
 | pulse-verified-gc | [FStarLang/pulse-verified-gc](https://github.com/FStarLang/pulse-verified-gc) | the steps of its CI (`verify.yml`) |
@@ -64,10 +68,13 @@ F* is installed in `_work/fstar`, and the log of each build is in
 `make` checks out the recorded commits first, and refuses to do so over local
 changes. To build the trees in `_work/src` as they are (for instance, while
 fixing a project), use `make NOCHECKOUT=1 <project>`; `FORCE=1` discards
-local changes instead.
+local changes instead. Builds are incremental; `CLEAN=1` deletes all
+untracked and ignored files of the checked-out trees first, for a build from
+scratch (do this before committing a new `hashes.txt`).
 
 ## Updating
 
 To move F* (or a project) forward: change its commit in `hashes.txt`, run
-`make -k -j$(nproc)`, and fix any project that fails on (a new commit of) its
-`olympus` branch. Only commit the new `hashes.txt` when everything builds.
+`make -k -j$(nproc) CLEAN=1`, and fix any project that fails on (a new commit
+of) its `olympus` branch. Only commit the new `hashes.txt` when everything
+builds.
