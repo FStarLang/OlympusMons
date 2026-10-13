@@ -5,6 +5,9 @@
 
 source "$(dirname "$0")/../lib.sh"
 olympus_env
+# pal runs F* through its own wrapper (opt/run-fstar.sh, which adds its
+# Pulse library to the include path), unless FSTAR_EXE says otherwise.
+unset FSTAR_EXE
 cd "$(src_dir pal)"
 
 pmake
