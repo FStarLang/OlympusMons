@@ -2,15 +2,17 @@
 #
 # Invariant: every project below builds correctly at its recorded commit,
 # using the F* (with its bundled Pulse and KaRaMeL) built from the recorded
-# FStar commit. Any F*/KaRaMeL/Pulse pins inside the projects themselves
-# are overridden by the OlympusMons build (except that EverParse uses the
-# krml of its own KaRaMeL pin; see README.md).
+# FStar commit and the Z3 built from the recorded z3 commit. Any
+# F*/KaRaMeL/Pulse/Z3 pins inside the projects themselves are overridden by
+# the OlympusMons build (except that EverParse uses the krml of its own
+# KaRaMeL pin; see README.md).
 #
 # Format: <project>:<commit>      ('#' starts a comment)
-FStar:03fe70e7e6229903b33a9177238979bba65b9c6e
-everparse:ad9414befa0241e8b3a9c84f9ee979445bad85d4
+z3:e375b3d13c469792c1a2aa798c8737fd46e062d3
+FStar:91ae03d6458baaf0fb04429a3401485f4031f7f1
+everparse:a78e6a54847c1b34e6269887980fc0cada83e132
 pal:51b8c40fe35403c1d0bb1284aa3b0e3c0c10f4bd
-kuiper:d9c8229e0804e93e447105656f44dc33e7bde968
-pulse-verified-gc:6891c8a04429f87c96de3df7f1115eec5a48cd52
-AlgoStar:224b3a8fa605e1710cd47cee80ced9cc3adcd4c2
+kuiper:0abafa1895494fdc56c042331fea3d1608db4355
+pulse-verified-gc:79fcaafab47df1306b306baeb94e4e053de5a88f
+AlgoStar:1089e9e04ea02a9b9f1af59c2517a165e129fc3a
 hacl-pulse:ac3f07cdc6d57354740597110555c2f794d84294
