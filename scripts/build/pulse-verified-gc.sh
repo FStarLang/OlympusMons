@@ -5,6 +5,8 @@
 source "$(dirname "$0")/../lib.sh"
 olympus_env
 cd "$(src_dir pulse-verified-gc)"
+# The Z3 under test, rather than the one that it pins (in all its Makefiles).
+export Z3_VERSION=$OLYMPUS_Z3_VERSION
 
 pmake
 pmake -C spot

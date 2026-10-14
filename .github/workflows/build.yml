@@ -46,7 +46,7 @@ jobs:
           fi
           missing=
           for c in opam gh git make gcc clang++ llvm-config-20 clang-format \
-                   cargo rustfmt dotnet python3 cmake jq unzip /usr/bin/time; do
+                   cargo rustfmt dotnet python3 cmake ninja jq unzip /usr/bin/time; do
             command -v "$c" > /dev/null || missing="$missing $c"
           done
           if [ -n "$missing" ]; then
@@ -54,7 +54,7 @@ jobs:
             exit 1
           fi
 
-      - name: Set up opam and Z3
+      - name: Set up opam
         run: scripts/setup.sh
 
       - name: Build

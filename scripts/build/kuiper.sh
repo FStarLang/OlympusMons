@@ -12,4 +12,5 @@ cd "$(src_dir kuiper)"
 # verify.mk from building F* from the (uninitialized) submodules. We then
 # point it at the OlympusMons F* instead of the one it would install in inst/.
 touch .packaged
-pmake verify FSTAR_EXE="$FSTAR_EXE" KRML_EXE="$KRML_EXE"
+pmake verify FSTAR_EXE="$FSTAR_EXE" KRML_EXE="$KRML_EXE" \
+  Z3_VERSION="$OLYMPUS_Z3_VERSION"

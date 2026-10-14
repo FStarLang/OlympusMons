@@ -15,13 +15,16 @@ FSTAR_PKG=$OLYMPUS_WORK/fstar
 # A snapshot of the parts of the F* source tree (at the same commit) that
 # some projects need: Pulse's makefile library and examples.
 FSTAR_SRC=$OLYMPUS_WORK/fstar-src
-# Z3 binaries (z3-4.8.5, z3-4.13.3, ...) as fetched by F*'s get_fstar_z3.sh.
+# The Z3 built from the recorded z3 commit, as z3 and z3-<version>, and stubs
+# that shadow any other Z3 in PATH (see build/z3.sh). This is the only Z3
+# that F* and the projects can use.
 Z3_BIN=$OLYMPUS_WORK/z3
 
-PROJECTS=(FStar everparse pal kuiper pulse-verified-gc AlgoStar hacl-pulse)
+PROJECTS=(z3 FStar everparse pal kuiper pulse-verified-gc AlgoStar hacl-pulse)
 
 repo_of () {
   case "$1" in
+    z3)                echo Z3Prover/z3 ;;
     FStar)             echo FStarLang/FStar ;;
     everparse)         echo project-everest/everparse ;;
     pal)               echo FStarLang/pal ;;
@@ -59,12 +62,19 @@ git_auth () {
   fi
 }
 
-# OCaml (the dedicated opam switch) and Z3. This is all F* itself needs.
+# OCaml (the dedicated opam switch) and the Z3 under test. This is all F* itself needs.
 base_env () {
   if [ -n "$OLYMPUS_OPAM_SWITCH" ]; then
     eval "$(opam env --switch="$OLYMPUS_OPAM_SWITCH" --set-switch)"
   fi
+  if [ ! -x "$Z3_BIN/z3" ]; then
+    echo "no Z3 at $Z3_BIN; build z3 first" >&2
+    return 1
+  fi
   export PATH="$Z3_BIN:$PATH"
+  # Its version (e.g. 5.1.0), for the projects that pin a Z3 version.
+  OLYMPUS_Z3_VERSION=$(z3 --version | awk '{ print $3 }')
+  export OLYMPUS_Z3_VERSION
   # Builds must succeed without proof recovery or other leniency.
   unset OTHERFLAGS FSTAR_EXE FSTAR_HOME FSTAR_ROOT KRML_EXE KRML_HOME PULSE_ROOT
   # A GitHub token in the environment (e.g. in CI) is only for checkout.sh.

@@ -25,6 +25,8 @@ pkgs=(
   wget
   # Cloning the private repositories
   gh
+  # Z3
+  cmake ninja-build
   # EverParse's tests (see its Dockerfile and CI)
   clang cmake gcc-multilib libsqlite3-dev libssl-dev python3-pip
   python3-venv

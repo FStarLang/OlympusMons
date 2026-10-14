@@ -7,7 +7,7 @@
 source "$(dirname "$0")/lib.sh"
 
 printf '%-18s %-7s %-13s %-9s %s\n' TARGET RESULT COMMIT TIME NOTE
-for t in FStar FStar-ci "${PROJECTS[@]:1}"; do
+for t in z3 FStar FStar-ci "${PROJECTS[@]:2}"; do
   p=${t%-ci}
   f=$OLYMPUS_WORK/status/$t
   if [ ! -f "$f" ]; then
