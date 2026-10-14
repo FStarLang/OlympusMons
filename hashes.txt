@@ -10,7 +10,7 @@
 # Format: <project>:<commit>      ('#' starts a comment)
 z3:e375b3d13c469792c1a2aa798c8737fd46e062d3
 FStar:91ae03d6458baaf0fb04429a3401485f4031f7f1
-everparse:a78e6a54847c1b34e6269887980fc0cada83e132
+everparse:ec355dba5583f00f8909a31bfcdccb7fa348730d
 pal:51b8c40fe35403c1d0bb1284aa3b0e3c0c10f4bd
 kuiper:0abafa1895494fdc56c042331fea3d1608db4355
 pulse-verified-gc:79fcaafab47df1306b306baeb94e4e053de5a88f
