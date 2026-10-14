@@ -88,11 +88,16 @@ jobs:
       - name: Set up opam and Z3
         run: scripts/setup.sh
 
+      # Only to get the clones out of the way before the jobs start; each
+      # target's own job checks out what it builds. A project that cannot be
+      # checked out is left to its own job, which reports it properly.
       - name: Check out every project
         run: |
+          rc=0
           for p in everparse pal kuiper pulse-verified-gc AlgoStar hacl-pulse; do
-            scripts/checkout.sh "$p"
+            scripts/checkout.sh "$p" || { echo "::warning::$p: checkout failed"; rc=1; }
           done
+          [ "$rc" = 0 ] || echo "Leaving the above to the jobs that build them."
 
       - name: Work out which targets to build
         id: matrix

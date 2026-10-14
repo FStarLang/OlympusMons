@@ -6,6 +6,11 @@
 # turns the worst failure mode of this CI -- a build that cannot read a
 # private repository and waits for a password that will never come -- into
 # an immediate, named error.
+#
+# An unreadable project is reported but does not stop the run: the other
+# projects are still worth building, and the job of the unreadable one
+# fails on its own, in seconds, saying the same thing. Only F* is fatal,
+# since nothing can be built without it.
 
 # shellcheck source=scripts/lib.sh
 source "$(dirname "$0")/../lib.sh"
@@ -44,8 +49,14 @@ done
 
 if [ "${#failed[@]}" -gt 0 ]; then
   echo
+  # ::error:: even when the run goes on: these projects cannot be built, and
+  # that is the run's conclusion however much else succeeds.
   echo "::error::The runner cannot read: ${failed[*]}. Give it read access" \
        "(the OLYMPUS_GH_TOKEN repository secret, or \`gh auth login\` as the" \
        "runner's user) -- see \"Continuous integration\" in README.md."
-  exit 1
+  case " ${failed[*]} " in
+    *" FStar "*) echo "::error::F* cannot be read, so nothing can be built."
+                 exit 1 ;;
+  esac
+  echo "Building the rest; the jobs of the above will fail."
 fi

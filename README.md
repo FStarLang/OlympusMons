@@ -110,7 +110,10 @@ forks), and on demand (`gh workflow run Build`). It is a graph of jobs:
 
 * **Set up** checks that the runner can read every repository in
   `hashes.txt` (seconds, and before anything expensive), creates the opam
-  switch and fetches Z3, and checks out every project.
+  switch and fetches Z3, and checks out every project. A repository it
+  cannot read is reported straight away, but only F* stops the run: the
+  rest are still worth building, and the job of the unreadable one fails on
+  its own.
 * **F\*** builds F* and installs it as the package that the rest use. It has
   the machine to itself, so it is given every core.
 * One job **per target**, all depending on F* and running concurrently.
@@ -167,8 +170,9 @@ To set up the machine, with Ubuntu 24.04 and 100 GB of free disk:
    store a fine-grained personal access token (resource owner FStarLang,
    repository access to FStarLang/hacl-pulse only, permission "Contents:
    read-only") as the repository secret `OLYMPUS_GH_TOKEN`, or run `gh auth
-   login` as the runners' user. The **Set up** job checks this and stops the
-   run immediately if it is missing.
+   login` as the runners' user. The **Set up** job checks this in seconds and
+   says so plainly; a project the runners cannot read fails at once, rather
+   than hanging until its job runs out of time.
 
 The opam switch is created (in the runner user's `~/.opam`) by the first
 build. By default each per-project job uses a quarter of the machine's cores
