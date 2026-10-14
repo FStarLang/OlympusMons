@@ -3,6 +3,7 @@
 # Pulse library is checked with whichever fstar.exe is first in PATH, which
 # olympus_env makes the OlympusMons one.
 
+# shellcheck source=scripts/lib.sh
 source "$(dirname "$0")/../lib.sh"
 olympus_env
 # pal runs F* through its own wrapper (opt/run-fstar.sh, which adds its

@@ -66,7 +66,17 @@ make everparse        # check out and build F*, then one project
 
 Everything happens in `_work/`: the clones are in `_work/src/<project>`,
 F* is installed in `_work/fstar`, and the log of each build is in
-`_work/logs/<project>.log`.
+`_work/logs/<project>.log`. (In CI, `_work` is `~/olympus-work`, outside the
+workspace, so that the jobs of a run share it; set `OLYMPUS_WORK` to move
+it.)
+
+Each build is given a time limit (`timeout_of` in
+[`scripts/lib.sh`](scripts/lib.sh), overridden by `OLYMPUS_TIMEOUT`). A build
+that exceeds it is killed, and what it was doing — the process tree, the load
+and the free disk — is written to `_work/logs/<project>.diagnostics.log` just
+before it is, so that a hang can be diagnosed afterwards. Nothing ever waits
+for input: `git` is told not to prompt, so a repository that cannot be read
+fails at once instead of blocking the build.
 
 `make` checks out the recorded commits first, and refuses to do so over local
 changes. To build the trees in `_work/src` as they are (for instance, while
@@ -87,33 +97,80 @@ builds.
 ## Continuous integration
 
 [`.github/workflows/build.yml`](.github/workflows/build.yml) builds everything
-from scratch (`scripts/setup.sh`, then `make -k CLEAN=1`) on every push to
-`main`, on every pull request (except from forks), and on demand (`gh workflow
-run Build`). The job summary shows `make status` and the end of the log of
-each failed build; the logs are also uploaded when the build fails. A new push
-to a pull request cancels its running build.
+from scratch on every push to `main`, on every pull request (except from
+forks), and on demand (`gh workflow run Build`). It is a graph of jobs:
+
+```
+                      /  FStar-ci   \
+                     |   everparse   |
+  Set up  ->  F*  -> |   pal         |  ->  Summary
+                     |   kuiper      |
+                      \  ...        /
+```
+
+* **Set up** checks that the runner can read every repository in
+  `hashes.txt` (seconds, and before anything expensive), creates the opam
+  switch and fetches Z3, and checks out every project.
+* **F\*** builds F* and installs it as the package that the rest use. It has
+  the machine to itself, so it is given every core.
+* One job **per target**, all depending on F* and running concurrently.
+* **Summary** collects the results and fails if any target did not succeed.
+
+Each target therefore has its own line in the run's graph, its own log (the
+`log-<target>` artifact, and the tail of it in that job's summary), and its
+own time limit (`timeout_of` in [`scripts/lib.sh`](scripts/lib.sh)). A build
+that exceeds its limit is killed, but not before its log records the state of
+the machine and the process tree underneath it, so that the run says *which*
+command hung rather than only that something did. While a build runs it
+reports what it is doing every couple of minutes, so a slow job can be told
+from a stuck one as it happens.
+
+`workflow_dispatch` takes two inputs: `targets`, to build only some of them
+(`gh workflow run Build -f targets=hacl-pulse`), and `clean`, which can be
+turned off to reuse the trees of the previous run when retrying one project.
+
+The jobs of a run share one build tree (`~/olympus-work` on the runner), so a
+run has the machine to itself; GitHub queues a new run behind the running
+one, and keeps only the newest commit queued.
+
+### The runners
 
 A full build takes about 130 CPU-hours and a few hours even on a big machine,
 far beyond GitHub's hosted runners for private repositories, so the workflow
-runs on a self-hosted runner with the label `olympus`. **Keep this repository
-private**: on a public repository, anyone could run code on that runner with
-a pull request.
+runs on self-hosted runners labelled `olympus`. **Keep this repository
+private**: on a public repository, anyone could run code on those runners
+with a pull request.
 
-To set up a runner, on a machine with Ubuntu 24.04 and 100 GB of free disk:
+A runner only ever runs one job at a time, so the number of runners
+registered on the build machine is what decides how many of the per-project
+jobs run at once. **Register one per project** (there are seven jobs after
+F*); with a single runner they queue up and the build takes as long as all of
+them put together.
 
-1. Create a user for the runner, and run `sudo scripts/install-system-deps.sh`
+To set up the machine, with Ubuntu 24.04 and 100 GB of free disk:
+
+1. Create a user for the runners, and run `sudo scripts/install-system-deps.sh`
    (from a clone of this repository).
 2. As that user, install Rust with [rustup](https://rustup.rs).
-3. In this repository's Settings > Actions > Runners, add a new self-hosted
-   runner (Linux, x64) and follow the instructions as that user, adding
-   `--labels olympus` to `./config.sh`. Then, rather than `./run.sh`, install
-   it as a service: `sudo ./svc.sh install <user>` and `sudo ./svc.sh start`.
+3. As that user, with `gh` logged in as an administrator of this repository:
+
+   ```
+   scripts/ci/add-runners.sh 8        # register 8 runners, as services
+   scripts/ci/add-runners.sh --list   # what is registered, and running
+   ```
+
+   This registers the runners with the `olympus` label and installs each as a
+   service, so they come back after a reboot. It is safe to re-run: runners
+   that are already configured are left alone (and restarted if they are
+   down). `--remove` unregisters the ones it created.
 4. Give the builds read access to the private projects (hacl-pulse): either
    store a fine-grained personal access token (resource owner FStarLang,
    repository access to FStarLang/hacl-pulse only, permission "Contents:
    read-only") as the repository secret `OLYMPUS_GH_TOKEN`, or run `gh auth
-   login` as the runner's user.
+   login` as the runners' user. The **Set up** job checks this and stops the
+   run immediately if it is missing.
 
 The opam switch is created (in the runner user's `~/.opam`) by the first
-build. The repository variable `OLYMPUS_JOBS` sets the number of parallel jobs
-(default: the number of cores).
+build. By default each per-project job uses a quarter of the machine's cores
+and the F* job uses all of them; the repository variable `OLYMPUS_JOBS`
+overrides this with a fixed number of parallel jobs for every job.

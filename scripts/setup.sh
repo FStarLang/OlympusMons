@@ -5,6 +5,7 @@
 # projects need, and the Z3 versions that they use (in _work/z3). The opam
 # switch is not made the current one.
 
+# shellcheck source=scripts/lib.sh
 source "$(dirname "$0")/lib.sh"
 
 # A fresh opam installation (e.g. on a new CI runner), set up as F*'s CI does.

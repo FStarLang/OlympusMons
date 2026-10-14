@@ -1,0 +1,6 @@
+# The self-hosted runners that the Build workflow uses (see "Continuous
+# integration" in README.md, and scripts/ci/add-runners.sh). actionlint
+# cannot know about custom labels, so they are listed here.
+self-hosted-runner:
+  labels:
+    - olympus

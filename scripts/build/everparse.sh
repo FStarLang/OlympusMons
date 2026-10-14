@@ -3,6 +3,7 @@
 # the ADMIT_* shortcuts that CI uses to split the work across jobs, so
 # everything is verified here) and of cbor.yml.
 
+# shellcheck source=scripts/lib.sh
 source "$(dirname "$0")/../lib.sh"
 olympus_env
 cd "$(src_dir everparse)"
