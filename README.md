@@ -78,14 +78,20 @@ before it is, so that a hang can be diagnosed afterwards. Nothing ever waits
 for input: `git` is told not to prompt, so a repository that cannot be read
 fails at once instead of blocking the build.
 
-`make` checks out the recorded commits first, and refuses to do so over local
-changes. To build the trees in `_work/src` as they are (for instance, while
-fixing a project), use `make NOCHECKOUT=1 <project>`; `FORCE=1` discards
-local changes instead. Builds are incremental; `CLEAN=1` deletes all
-untracked and ignored files of the checked-out trees first (including F*'s
-KaRaMeL submodule) and rebuilds the F* package, for a build from scratch (do
-this before committing a new `hashes.txt`). As it rebuilds F*, do not use it
-while other builds are running.
+`make` checks out the recorded commits first, and refuses to do so over
+changes to the tracked files of a tree. To build the trees in `_work/src` as
+they are (for instance, while fixing a project), use `make NOCHECKOUT=1
+<project>`; `FORCE=1` discards those changes instead. Builds are
+incremental; `CLEAN=1` restores each tree to exactly the recorded commit --
+discarding changes to tracked files as well as every untracked and ignored
+file, F*'s KaRaMeL submodule included -- and rebuilds the F* package, for a
+build from scratch (do this before committing a new `hashes.txt`). As it
+rebuilds F*, do not use it while other builds are running.
+
+Note that several of these projects regenerate committed files as they build
+(hacl-pulse extracts into `dist/`, pulse-verified-gc into
+`generational/snapshot/`), and so leave their tree with modified tracked
+files. That is why `CLEAN=1`, and CI, put the trees back.
 
 ## Updating
 

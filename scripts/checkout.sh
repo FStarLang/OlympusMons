@@ -2,12 +2,13 @@
 # Usage: scripts/checkout.sh <project> [<rev>]
 #
 # Clone (or fetch) <project> into _work/src/<project> and check out the
-# commit recorded in hashes.txt (or <rev>), detached. Refuses to touch a
-# working tree with local changes to tracked files, unless FORCE=1, which
-# discards them. CLEAN=1 also deletes all untracked and ignored files (build
-# products included, also in F*'s KaRaMeL submodule), for a build from
-# scratch. Submodules are not initialized, except for F*'s own KaRaMeL
-# submodule: OlympusMons overrides any F*/KaRaMeL pins made by the
+# commit recorded in hashes.txt (or <rev>), detached. CLEAN=1 restores the
+# tree to exactly that commit, discarding everything an earlier build left
+# behind: all untracked and ignored files (build products included, also in
+# F*'s KaRaMeL submodule) and any change to a tracked file. Without CLEAN,
+# a tree with modified tracked files is left alone and the checkout fails,
+# unless FORCE=1. Submodules are not initialized, except for F*'s own
+# KaRaMeL submodule: OlympusMons overrides any F*/KaRaMeL pins made by the
 # downstream projects (but see build/everparse.sh).
 #
 # Every operation that talks to GitHub is bounded by $OLYMPUS_NET_TIMEOUT,
@@ -35,13 +36,20 @@ if [ ! -d "$d/.git" ]; then
   fi
 fi
 
+# A build may modify the tracked files of its own tree: several of these
+# projects regenerate files that are committed -- hacl-pulse's extracted
+# dist/, pulse-verified-gc's generational/snapshot/ -- and check the result
+# against what is recorded. A tree that has been built in is therefore
+# dirty, and the next build must put it back. CLEAN=1 (a build from
+# scratch, which deletes every untracked and ignored file below) discards
+# those changes; without it, they may be someone's work in progress.
 if [ -n "$(git -C "$d" status --porcelain --untracked-files=no)" ]; then
-  if [ "${FORCE:-0}" = 1 ]; then
-    msg "$p: discarding local changes"
+  if [ "${CLEAN:-0}" = 1 ] || [ "${FORCE:-0}" = 1 ]; then
+    msg "$p: discarding changes to tracked files"
     git -C "$d" reset -q --hard
   else
     echo "$p: $d has local changes, refusing to check out $rev" \
-         "(FORCE=1 discards them)" >&2
+         "(CLEAN=1 or FORCE=1 discards them)" >&2
     exit 1
   fi
 fi
@@ -59,6 +67,11 @@ if [ "${CLEAN:-0}" = 1 ]; then
   git -C "$d" clean -q -xffd
 fi
 if [ "$p" = FStar ]; then
+  # The submodule has a build in it too, and `submodule update` will not
+  # overwrite changes to its tracked files.
+  if [ "${CLEAN:-0}" = 1 ] && [ -e "$d/karamel/.git" ]; then
+    git -C "$d/karamel" reset -q --hard
+  fi
   git_net -C "$d" submodule update -q --init karamel
   # git clean does not descend into submodules.
   if [ "${CLEAN:-0}" = 1 ]; then

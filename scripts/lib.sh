@@ -36,7 +36,10 @@ OLYMPUS_HEARTBEAT=${OLYMPUS_HEARTBEAT:-120}
 # FStar commit. All downstream projects are built against it.
 FSTAR_PKG=$OLYMPUS_WORK/fstar
 # A snapshot of the parts of the F* source tree (at the same commit) that
-# some projects need: Pulse's makefile library and examples.
+# some projects need: Pulse's makefile library and examples. Shared by the
+# jobs that run at the same time, and so read-only to them, with one
+# exception: EverParse builds the DICE example in place. The FStar target
+# recreates it, so nothing in it survives a build from scratch.
 FSTAR_SRC=$OLYMPUS_WORK/fstar-src
 # Z3 binaries (z3-4.8.5, z3-4.13.3, ...) as fetched by F*'s get_fstar_z3.sh.
 Z3_BIN=$OLYMPUS_WORK/z3

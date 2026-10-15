@@ -20,6 +20,10 @@ if [ "$#" -gt 0 ]; then
     # F* is always built, by the job that the others depend on; asking for
     # it by name (alone, to build only F*) adds nothing to the matrix.
     if [ "$t" = FStar ]; then continue; fi
+    # Twice would be two jobs building one tree at the same time.
+    case " ${wanted[*]:-} " in
+      *" $t "*) continue ;;
+    esac
     case " ${available[*]} " in
       *" $t "*) wanted+=("$t") ;;
       *) echo "no such target: $t (expected one of: FStar ${available[*]})" >&2
