@@ -95,9 +95,8 @@ timeout_of () {
     kuiper)            echo 150m ;;
     pulse-verified-gc) echo 120m ;;
     AlgoStar)          echo 90m ;;
-    # hacl-pulse has never yet finished a build here, so it gets the most
-    # room; the first run that completes should replace this with a figure
-    # based on how long it actually takes.
+    # The longest of them: 1h15m-1h21m in the runs so far (it extracts
+    # with Custard, compiles the result and runs the C tests).
     hacl-pulse)        echo 240m ;;
     *)                 echo 240m ;;
   esac
