@@ -15,7 +15,7 @@ everparse:<commit>
 
 one `project:commit` per line (`#` starts a comment). **Every project builds
 at its recorded commit, against the F* (with its Pulse and KaRaMeL) at the
-recorded F* commit and the Z3 built from the recorded Z3 commit.** The
+recorded F* commit and the Z3 of the recorded Z3 commit.** The
 projects' own pins of F*, KaRaMeL, Pulse or Z3 (submodules, nightly
 releases, hashes files, `--z3version` options, ...) are ignored, with one
 exception: EverParse's code generation needs `krml` features that are only on
@@ -25,7 +25,7 @@ recorded F*).
 
 | project | repository | what is built |
 |---|---|---|
-| z3 | [Z3Prover/z3](https://github.com/Z3Prover/z3) | the `z3` executable (release build), the only Z3 that F* and the projects can use (see below) |
+| z3 | [Z3Prover/z3](https://github.com/Z3Prover/z3) | the `z3` executable: the official executable of the release if the commit is a release (`z3-<version>` tag), otherwise a release build from source; the only Z3 that F* and the projects can use (see below) |
 | FStar | [FStarLang/FStar](https://github.com/FStarLang/FStar) | stage 3 and a binary package; its CI target `make ci` |
 | everparse | [project-everest/everparse](https://github.com/project-everest/everparse) | the targets of its Linux CI (`ci.yml`, `cbor.yml`), with the `krml` of its own KaRaMeL pin (see above) |
 | pal | [FStarLang/pal](https://github.com/FStarLang/pal) | `make` and `make test`, as in its CI |
@@ -37,7 +37,7 @@ recorded F*).
 The exact commands are in [`scripts/build/`](scripts/build).
 
 Z3 is installed in `_work/z3` as `z3` and as `z3-<version>` (e.g.
-`z3-5.1.0`, the name under which F* looks for the Z3 of its `--z3version`),
+`z3-5.3.0`, the name under which F* looks for the Z3 of its `--z3version`),
 and `_work/z3` comes first in the PATH of every build. The projects that
 pin a Z3 version (EverParse's `EVERPARSE_Z3_VERSION`, Kuiper's and
 pulse-verified-gc's `Z3_VERSION`) are given the version of this Z3 instead.
@@ -55,7 +55,7 @@ proofs or weaken specifications.
 ## Building
 
 Prerequisites: [opam](https://opam.ocaml.org/), a C toolchain (with 32-bit
-support, for EverParse's tests), CMake and Ninja (for Z3), clang/LLVM 20 and
+support, for EverParse's tests), unzip, CMake and Ninja (to build Z3 from source), clang/LLVM 20 and
 clang-format 20 (for pal), Rust (for pal and EverParse), .NET 10 (for F*'s
 tests), and the GitHub CLI `gh` (logged in) to clone the private
 repositories. On Ubuntu 24.04, `sudo scripts/install-system-deps.sh` installs
@@ -63,7 +63,7 @@ all of them but Rust, which is best installed with
 [rustup](https://rustup.rs).
 
 One-time setup, an opam switch (`olympus`) with the OCaml packages that F*
-and the projects need (Z3 is built from source by `make`):
+and the projects need (`make` downloads Z3, or builds it from source):
 
 ```
 scripts/setup.sh
