@@ -2,8 +2,8 @@
 # Usage: scripts/setup.sh
 #
 # One-time setup: an opam switch with the OCaml packages that F* and the
-# projects need, and the Z3 versions that they use (in _work/z3). The opam
-# switch is not made the current one.
+# projects need, and the Z3 that the recorded F* uses (in _work/z3, see
+# install-z3.sh). The opam switch is not made the current one.
 
 # shellcheck source=scripts/lib.sh
 source "$(dirname "$0")/lib.sh"
@@ -22,5 +22,4 @@ opam install -y --switch="$OLYMPUS_OPAM_SWITCH" --deps-only \
 opam install -y --switch="$OLYMPUS_OPAM_SWITCH" \
   domainslib hex re ctypes sha sexplib
 
-mkdir -p "$Z3_BIN"
-"$(src_dir FStar)/.scripts/get_fstar_z3.sh" "$Z3_BIN"
+"$OLYMPUS_ROOT/scripts/install-z3.sh"

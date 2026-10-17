@@ -40,6 +40,16 @@ F*. Each commit on an `olympus` branch says whether it is a minimal change
 (`Olympus-Change: fstar-regression-workaround`). These changes never admit
 proofs or weaken specifications.
 
+There is one Z3: the official release of the version that the recorded F*
+uses by default (its `--z3version`, e.g. 5.3.0), downloaded by F*'s own
+`.scripts/get_fstar_z3.sh` and installed in `_work/z3` as `z3` and `z3-<version>`
+(see [`scripts/install-z3.sh`](scripts/install-z3.sh)). `_work/z3` comes
+first in the PATH of every build. The projects that pin a Z3 version
+(EverParse's `EVERPARSE_Z3_VERSION`, Kuiper's and pulse-verified-gc's
+`Z3_VERSION`) are given this version instead. Any other Z3 (`z3-4.13.3`,
+...) is shadowed in `_work/z3` by a stub that fails, so that a leftover pin
+of another Z3 makes the build fail rather than silently use another Z3.
+
 ## Building
 
 Prerequisites: [opam](https://opam.ocaml.org/), a C toolchain (with 32-bit
@@ -50,7 +60,7 @@ Rust (for pal and EverParse), .NET 10 (for F*'s tests), and the GitHub CLI
 best installed with [rustup](https://rustup.rs).
 
 One-time setup, an opam switch (`olympus`) with the OCaml packages that F*
-and the projects need, and the Z3 versions that they use:
+and the projects need, and the Z3 that F* uses:
 
 ```
 scripts/setup.sh
@@ -65,7 +75,8 @@ make everparse        # check out and build F*, then one project
 ```
 
 Everything happens in `_work/`: the clones are in `_work/src/<project>`,
-F* is installed in `_work/fstar`, and the log of each build is in
+Z3 is installed in `_work/z3` (again whenever F* is built), F* in
+`_work/fstar`, and the log of each build is in
 `_work/logs/<project>.log`. (In CI, `_work` is `~/olympus-work`, outside the
 workspace, so that the jobs of a run share it; set `OLYMPUS_WORK` to move
 it.)

@@ -41,7 +41,9 @@ FSTAR_PKG=$OLYMPUS_WORK/fstar
 # exception: EverParse builds the DICE example in place. The FStar target
 # recreates it, so nothing in it survives a build from scratch.
 FSTAR_SRC=$OLYMPUS_WORK/fstar-src
-# Z3 binaries (z3-4.8.5, z3-4.13.3, ...) as fetched by F*'s get_fstar_z3.sh.
+# The Z3 that the recorded F* uses by default, as z3 and z3-<version>, and
+# stubs that shadow any other Z3 in PATH (see install-z3.sh). This is the
+# only Z3 that F* and the projects can use.
 Z3_BIN=$OLYMPUS_WORK/z3
 
 PROJECTS=(FStar everparse pal kuiper pulse-verified-gc AlgoStar hacl-pulse)
@@ -132,7 +134,14 @@ base_env () {
   if [ -n "$OLYMPUS_OPAM_SWITCH" ]; then
     eval "$(opam env --switch="$OLYMPUS_OPAM_SWITCH" --set-switch)"
   fi
+  if [ ! -x "$Z3_BIN/z3" ]; then
+    echo "no Z3 in $Z3_BIN; run scripts/install-z3.sh (or build FStar)" >&2
+    return 1
+  fi
   export PATH="$Z3_BIN:$PATH"
+  # Its version (e.g. 5.3.0), for the projects that pin a Z3 version.
+  OLYMPUS_Z3_VERSION=$(z3 --version | awk '{ print $3 }')
+  export OLYMPUS_Z3_VERSION
   # Builds must succeed without proof recovery or other leniency.
   unset OTHERFLAGS FSTAR_EXE FSTAR_HOME FSTAR_ROOT KRML_EXE KRML_HOME PULSE_ROOT
   # A GitHub token in the environment (e.g. in CI) is only for checkout.sh.
