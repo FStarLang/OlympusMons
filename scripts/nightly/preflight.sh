@@ -5,7 +5,7 @@
 # do what it is for: record its result needs to push to OlympusMons, and
 # fixing needs Copilot and push access to every project.
 #
-# Environment: PUBLISH (true/false), FIX_ATTEMPTS, COPILOT_GITHUB_TOKEN,
+# Environment: PUBLISH and FIX (true/false), COPILOT_GITHUB_TOKEN,
 # OLYMPUS_PUSH_TOKEN. Sets `fix` (true/false) in $GITHUB_OUTPUT.
 
 # shellcheck source=scripts/lib.sh
@@ -19,7 +19,7 @@ if [ -z "${OLYMPUS_PUSH_TOKEN:-}" ]; then
   if [ "${PUBLISH:-true}" = true ]; then
     problem "the secret OLYMPUS_PUSH_TOKEN is not set: the nightly cannot push (publish=false would skip that)"
   else
-    echo "::warning::OLYMPUS_PUSH_TOKEN is not set: fixes cannot be pushed, so there will be none"
+    echo "::warning::OLYMPUS_PUSH_TOKEN is not set: fixes could not be pushed, so there will be none"
     fix=false
   fi
 fi
@@ -27,7 +27,7 @@ if [ -z "${COPILOT_GITHUB_TOKEN:-}" ]; then
   echo "::warning::the secret COPILOT_GITHUB_TOKEN is not set: failures will not be fixed"
   fix=false
 fi
-[ "${FIX_ATTEMPTS:-3}" = 0 ] && fix=false
+[ "${FIX:-true}" = true ] || fix=false
 
 # Can the token write where it must? A dry run of a push authenticates and
 # checks permissions, and changes nothing.
@@ -43,7 +43,7 @@ can_push () {
 
 if [ -n "${OLYMPUS_PUSH_TOKEN:-}" ]; then
   repos=("${GITHUB_REPOSITORY:-FStarLang/OlympusMons}")
-  [ "${FIX_ATTEMPTS:-3}" != 0 ] && for p in "${PROJECTS[@]}"; do
+  [ "$fix" = true ] && for p in "${PROJECTS[@]}"; do
     [ "$p" = FStar ] || repos+=("$(repo_of "$p")")
   done
   probe=$(mktemp -d)

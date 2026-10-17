@@ -3,8 +3,9 @@
 #
 # Everything works with the commits in <candidate-hashes>, apart from the
 # projects that were fixed: <fixed-dir>/<project>.hash has the commit of the
-# fix, which replaces the candidate. Record the result in hashes.txt and, if
-# PUSH=1, push it to main. Run in a checkout of OlympusMons (of main).
+# fix, which replaces the candidate. Record the result in hashes.txt, as a
+# commit that the caller pushes (after pushing the fixes). Run in a checkout
+# of OlympusMons (of main).
 #
 # Refuses if hashes.txt has changed since <base-sha>, the commit that the
 # nightly started from: the run then tested something other than what would
@@ -63,9 +64,3 @@ $notes
 Run: ${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY:-FStarLang/OlympusMons}/actions/runs/${GITHUB_RUN_ID:-0}" \
     -- hashes.txt
 git log -1 --stat
-
-if [ "${PUSH:-0}" = 1 ]; then
-  git push origin HEAD:main
-else
-  echo "(not pushing: PUSH is not 1)"
-fi

@@ -4,10 +4,9 @@
 # stopped building. Once every project builds, record the commits in
 # hashes.txt and push.
 #
-#                                        / one job per project that failed:
-#   Set up -> F* -> targets -> Triage -> |  Copilot repairs it, the repair
-#                                  |      \ is pushed and built again
-#                                   \________________________ Publish
+#                                       one job per project that failed:
+#   Set up -> F* -> targets -> Triage -> Fix (Copilot, once, no budget) ->
+#       Verify (the fixes, built from scratch) -> Publish (push, record)
 #
 # It runs on the same self-hosted runners as the Build workflow, in a tree
 # and an opam switch of its own, so that it does not disturb a Build.
@@ -18,13 +17,12 @@ on:
     - cron: '0 8 * * *'
   workflow_dispatch:
     inputs:
-      fix_attempts:
+      fix:
         description: >-
-          How many times Copilot may try to repair each project that stops
-          building. 0 only reports.
-        type: choice
-        options: ['3', '0', '1', '2', '5']
-        default: '3'
+          Have Copilot repair the projects that stop building. Turn this off
+          to only report.
+        type: boolean
+        default: true
       publish:
         description: >-
           Record and push the result to main when everything builds. Turn
@@ -44,10 +42,6 @@ on:
         description: The model that Copilot uses.
         type: string
         default: claude-opus-5.5
-      credits:
-        description: The most AI credits that one Copilot try may spend.
-        type: string
-        default: '200'
 
 permissions:
   contents: read
@@ -82,7 +76,6 @@ jobs:
       go: ${{ steps.go.outputs.go }}
       matrix: ${{ steps.matrix.outputs.matrix }}
       fix: ${{ steps.tokens.outputs.fix }}
-      attempts: ${{ steps.tokens.outputs.attempts }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -107,10 +100,8 @@ jobs:
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
           OLYMPUS_PUSH_TOKEN: ${{ secrets.OLYMPUS_PUSH_TOKEN }}
           PUBLISH: ${{ github.event_name != 'workflow_dispatch' || inputs.publish }}
-          FIX_ATTEMPTS: ${{ inputs.fix_attempts || '3' }}
-        run: |
-          echo "attempts=$FIX_ATTEMPTS" >> "$GITHUB_OUTPUT"
-          scripts/nightly/preflight.sh
+          FIX: ${{ github.event_name != 'workflow_dispatch' || inputs.fix }}
+        run: scripts/nightly/preflight.sh
 
       - name: Work out what to try
         id: advance
@@ -314,8 +305,10 @@ jobs:
       needs.triage.outputs.failed != '[]' &&
       needs.setup.outputs.fix == 'true'
     runs-on: [self-hosted, linux, x64, olympus]
-    # Each try may take 90 minutes of Copilot and a full build.
-    timeout-minutes: 900
+    # Copilot runs until it succeeds or gives up, with no budget; this limit
+    # (and the 12 hours that fix.sh gives the agent) only guards against a
+    # hung session.
+    timeout-minutes: 800
     strategy:
       fail-fast: false
       matrix:
@@ -345,16 +338,12 @@ jobs:
           echo "$RUNNER_TEMP/copilot/node_modules/.bin" >> "$GITHUB_PATH"
           "$RUNNER_TEMP/copilot/node_modules/.bin/copilot" --version
 
-      # The only step with the secrets, and fix.sh keeps each of them away
-      # from everything that does not need it: the agent never holds the
-      # push token, and the builds hold neither.
+      # The only step with a secret, and only the Copilot one: the push
+      # token is not available to anything that runs a build or an agent.
       - name: Repair ${{ matrix.project }}
         env:
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
-          OLYMPUS_PUSH_TOKEN: ${{ secrets.OLYMPUS_PUSH_TOKEN }}
-          OLYMPUS_FIX_ATTEMPTS: ${{ needs.setup.outputs.attempts }}
           OLYMPUS_FIX_MODEL: ${{ inputs.model || 'claude-opus-5.5' }}
-          OLYMPUS_FIX_CREDITS: ${{ inputs.credits || '200' }}
           OLYMPUS_NIGHTLY_OUT: ${{ github.workspace }}/nightly-out
         run: scripts/nightly/fix.sh '${{ matrix.project }}'
 
@@ -367,9 +356,68 @@ jobs:
           retention-days: 14
           if-no-files-found: warn
 
+  verify:
+    # The fixes are only as good as a build from scratch says: one per
+    # project that Copilot fixed, in parallel. Nothing has been pushed yet.
+    name: Verify ${{ matrix.project }}
+    needs: [setup, triage, fix]
+    if: >-
+      always() && needs.fix.result == 'success' &&
+      needs.triage.outputs.failed != '[]'
+    runs-on: [self-hosted, linux, x64, olympus]
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.triage.outputs.failed || '[{"project":"none"}]') }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/olympus-runner
+        with:
+          jobs: share
+
+      - name: Download what was repaired
+        uses: actions/download-artifact@v8
+        with:
+          pattern: log-fix-*
+          path: fixed
+          merge-multiple: true
+
+      - name: Use the candidate commits, with the fixes
+        run: |
+          scripts/nightly/apply-fixes.sh "$OLYMPUS_WORK/candidate-hashes.txt" fixed \
+            "$OLYMPUS_WORK/final-hashes.txt"
+          echo "OLYMPUS_HASHES=$OLYMPUS_WORK/final-hashes.txt" >> "$GITHUB_ENV"
+
+      - name: Build ${{ matrix.project }} from scratch
+        run: scripts/run.sh '${{ matrix.project }}'
+
+      - name: Summary
+        if: always()
+        run: scripts/ci/job-summary.sh '${{ matrix.project }}'
+
+      - name: Collect the log
+        if: always()
+        run: scripts/ci/collect-logs.sh '${{ matrix.project }}'
+
+      - name: Upload the log
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: log-verify-${{ matrix.project }}
+          path: ci-logs/
+          retention-days: 14
+          if-no-files-found: warn
+
   publish:
     name: Publish
-    needs: [setup, fstar, check, triage, fix]
+    needs: [setup, fstar, check, triage, fix, verify]
     if: always() && needs.setup.outputs.go == 'true'
     runs-on: [self-hosted, linux, x64, olympus]
     timeout-minutes: 30
@@ -388,6 +436,7 @@ jobs:
           CHECK: ${{ needs.check.result }}
           TRIAGE: ${{ needs.triage.result }}
           FIX: ${{ needs.fix.result }}
+          VERIFY: ${{ needs.verify.result }}
           BLOCKED: ${{ needs.triage.outputs.blocked }}
           REASON: ${{ needs.triage.outputs.reason }}
           FAILED: ${{ needs.triage.outputs.failed }}
@@ -400,6 +449,7 @@ jobs:
           [ "$BLOCKED" != true ]  || why+=("$REASON")
           if [ "${FAILED:-[]}" != '[]' ]; then
             [ "$FIX" = success ] || why+=("not repaired (repair: $FIX): $FAILED")
+            [ "$VERIFY" = success ] || why+=("the repairs do not build from scratch (verify: $VERIFY)")
           fi
           if [ "${#why[@]}" -gt 0 ]; then
             {
@@ -429,6 +479,10 @@ jobs:
           path: fixed
           merge-multiple: true
 
+      # Everything has now been built from scratch: push the fixes, then
+      # record them. The commit is made first, because it is the one thing
+      # that can still refuse (hashes.txt having moved), and the pushes are
+      # all tried as dry runs before any of them lands.
       - name: Record the commits that were built
         env:
           # Only a run of main can change main.
@@ -436,15 +490,22 @@ jobs:
             ${{ github.ref == 'refs/heads/main' &&
             (github.event_name != 'workflow_dispatch' || inputs.publish) && '1' || '0' }}
           BASE: ${{ github.sha }}
+          OLYMPUS_PUSH_TOKEN: ${{ secrets.OLYMPUS_PUSH_TOKEN }}
         run: |
           mkdir -p fixed
-          scripts/nightly/publish.sh "$OLYMPUS_WORK/candidate-hashes.txt" fixed "$BASE" \
-            | tee "$RUNNER_TEMP/publish.txt"
+          {
+            PUSH=0 scripts/nightly/publish.sh "$OLYMPUS_WORK/candidate-hashes.txt" fixed "$BASE"
+            if [ "$PUSH" = 1 ]; then
+              scripts/nightly/push-fixes.sh "$OLYMPUS_WORK/candidate-hashes.txt" fixed
+              git push origin HEAD:main
+            else
+              echo "(not pushing: a dry run, or not a run of main)"
+            fi
+          } 2>&1 | tee "$RUNNER_TEMP/publish.txt"
           {
             echo '## Recorded'
             echo
             echo '```'
             cat "$RUNNER_TEMP/publish.txt"
             echo '```'
-            [ "$PUSH" = 1 ] || echo "Not pushed (a dry run, or not a run of main)."
           } >> "$GITHUB_STEP_SUMMARY"
