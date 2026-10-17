@@ -98,7 +98,8 @@ files. That is why `CLEAN=1`, and CI, put the trees back.
 To move F* (or a project) forward: change its commit in `hashes.txt`, run
 `make -k -j$(nproc) CLEAN=1`, and fix any project that fails on (a new commit
 of) its `olympus` branch. Only commit the new `hashes.txt` when everything
-builds.
+builds. The [nightly](#the-nightly) does this every night, with Copilot to
+fix what breaks.
 
 ## Continuous integration
 
@@ -184,3 +185,80 @@ The opam switch is created (in the runner user's `~/.opam`) by the first
 build. By default each per-project job uses a quarter of the machine's cores
 and the F* job uses all of them; the repository variable `OLYMPUS_JOBS`
 overrides this with a fixed number of parallel jobs for every job.
+
+## The nightly
+
+[`.github/workflows/nightly.yml`](.github/workflows/nightly.yml) keeps
+OlympusMons current with F*, unattended. Every night (08:00 UTC, or on
+demand: `gh workflow run Nightly`) it:
+
+1. **Advances** F* to the tip of its `master`, and every other project to the
+   tip of its `olympus` branch (or of its default branch, for those that have
+   none yet). A project only moves forward. Nothing is written to `hashes.txt`
+   yet. If nothing is newer, it stops.
+2. **Builds** all of it from scratch, as the Build workflow does: the same
+   job graph, in parallel, with a log per target. It uses a tree
+   (`~/olympus-nightly-work`) and an opam switch (`olympus-nightly`) of its
+   own, so a Build can run beside it.
+3. **Triages.** If F* or F*'s own CI fails, it stops: that is for a person,
+   and fixing the projects would be wasted. Otherwise each project that
+   failed gets a **Fix** job, in parallel with the others.
+4. **Fixes.** A Fix job runs the [Copilot CLI](https://github.com/github/copilot-cli)
+   (autopilot, Claude Opus 5.5) in the tree of the failed build, with the
+   failing log, the F* that changed, and the rules: no `admit`, `assume`,
+   `magic`, `--lax`; no deleted or skipped lemmas or tests; no CI or pin
+   changes. After each of up to three attempts the project is rebuilt and the
+   change is checked for those shortcuts; an attempt that has one is thrown
+   away. A fix that builds is committed and pushed (never forced) to the
+   project's `olympus` branch, which is created if there is none, and then
+   **built again from scratch**: what is recorded is a build of the pushed
+   commit, not of the tree Copilot left.
+5. **Publishes.** Only if everything built (with fixes where needed), it
+   commits the new `hashes.txt` to `main`. The push is made with a token, so
+   it starts a Build of it, as a last confirmation. Otherwise it fails, says
+   why in its summary, and changes nothing in OlympusMons. (A project fix
+   that was pushed stays on its `olympus` branch.)
+
+### Setting it up
+
+Two repository secrets (Settings, Secrets and variables, Actions):
+
+* `COPILOT_GITHUB_TOKEN`: a fine-grained personal access token with the
+  "Copilot Requests" permission, of an account with Copilot.
+* `OLYMPUS_PUSH_TOKEN`: a fine-grained personal access token (resource owner
+  FStarLang) with "Contents: read and write" on this repository and on
+  everparse, pal, kuiper, pulse-verified-gc, AlgoStar and hacl-pulse. It is
+  needed for publishing and for fixing.
+
+The **Set up** job checks, in seconds, that the tokens exist and that
+`OLYMPUS_PUSH_TOKEN` can push to every repository, and fails before anything
+expensive if not. Without `COPILOT_GITHUB_TOKEN` the nightly still runs but
+only reports, and does not publish a result that has failures. The runners
+need Node.js only for the Fix jobs, which install it and the Copilot CLI
+themselves.
+
+`workflow_dispatch` takes: `fix_attempts` (0 to only report), `publish` (off
+for a dry run, which changes nothing), `force` (build even if nothing is
+newer), `fstar_rev` (an F* branch or commit, instead of `master`), `model` and
+`credits` (the most AI credits per attempt; the default is 200).
+
+### What the credentials can do
+
+Copilot runs with `--yolo` on the runner, and the builds run arbitrary
+makefiles, so the tokens are kept apart: the Fix step is the only one that
+has the secrets, `scripts/nightly/fix.sh` hands Copilot nothing but its own
+token (no GitHub login, no git configuration), and the push token is used
+only by the commands that push. Copilot never commits or pushes; the
+workflow does that, after checking the result.
+
+### Things to know
+
+* `olympus` branches are advanced by the nightly only with fast-forward
+  pushes. If a branch moved while it ran, the push is rejected, the Fix job
+  fails (the fix is kept as a patch in its artifact), and nothing is recorded.
+* A fix is pushed to `olympus` before its from-scratch rebuild, so that
+  commit can end up there even if the rebuild fails. `hashes.txt` is what
+  says which commits work.
+* FStar, everparse and pal have no `olympus` branch until the first time one
+  of them needs a fix.
+* Only the projects are fixed, never F*.

@@ -43,7 +43,9 @@ runs:
         # wipes at the start of every job, so that the jobs of a run share
         # one F* package and one set of clones. Builds are still from
         # scratch: CLEAN=1 makes each checkout discard its build products.
-        work=${OLYMPUS_WORK:-$HOME/olympus-work}
+        # A workflow that must not disturb the Build workflow's tree (the
+        # nightly) names its own, in OLYMPUS_WORK_NAME.
+        work=${OLYMPUS_WORK:-$HOME/${OLYMPUS_WORK_NAME:-olympus-work}}
         mkdir -p "$work"
         echo "OLYMPUS_WORK=$work" >> "$GITHUB_ENV"
 
@@ -70,7 +72,7 @@ runs:
         echo "runner:  $RUNNER_NAME on $(hostname)"
         echo "cores:   $(nproc), load$(cut -d' ' -f1-3 /proc/loadavg | sed 's/^/ /')"
         free -h || true
-        df -h "${OLYMPUS_WORK:-$HOME/olympus-work}" || true
+        df -h "$OLYMPUS_WORK" || true
         # Builds of earlier runs that outlived their job would compete with
         # this one for the machine, and are worth knowing about.
         echo "other fstar.exe/z3 processes running as $(id -un):"
