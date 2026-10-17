@@ -3,6 +3,7 @@
 # dist/ (with Custard), compiles it and runs the C tests. The extracted
 # dist/ is committed, so it must also be up to date.
 
+# shellcheck source=scripts/lib.sh
 source "$(dirname "$0")/../lib.sh"
 olympus_env
 cd "$(src_dir hacl-pulse)"

@@ -1,7 +1,16 @@
 # Build F* and every project at the commits recorded in hashes.txt, from
-# scratch (`make -k CLEAN=1`, see README.md). This takes hours even on a big
-# machine, so it runs on a self-hosted runner with the label `olympus` (see
-# "Continuous integration" in README.md).
+# scratch (see README.md), as a graph of jobs:
+#
+#                            /  FStar-ci   \
+#                           |   everparse   |
+#   Set up  ->  F*  ->      |   pal         |  ->  Summary
+#                           |   kuiper      |
+#                            \  ...        /
+#
+# so that each target has its own line in the run's graph, its own log, its
+# own time limit, and its own artifact -- and so that the targets after F*
+# run in parallel, one per self-hosted runner registered on the build
+# machine (see scripts/ci/add-runners.sh, and README.md).
 name: Build
 
 on:
@@ -9,93 +18,246 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      targets:
+        description: >-
+          Which targets to build after F* (space-separated; empty means all):
+          FStar-ci everparse pal kuiper pulse-verified-gc AlgoStar hacl-pulse
+        type: string
+        required: false
+      clean:
+        description: >-
+          Build from scratch. Turn this off to reuse the trees of the last
+          run, e.g. to retry one project without rebuilding the rest.
+        type: boolean
+        default: true
 
 permissions:
   contents: read
 
-# One build at a time per branch or pull request. A new push to a pull
-# request cancels its running build; builds of main are never cancelled.
+# The jobs all run on one machine and share one build tree, so a run must
+# have it to itself. GitHub keeps at most one run queued behind the running
+# one, cancelling any older queued run, so the newest commit is the one that
+# gets built.
 concurrency:
-  group: build-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: olympus-build
+  cancel-in-progress: false
+
+env:
+  # Unless a workflow_dispatch asks otherwise, every checkout discards its
+  # build products, so that builds are from scratch.
+  CLEAN: ${{ (github.event_name == 'workflow_dispatch' && !inputs.clean) && '0' || '1' }}
+  # Read access to the private project repositories (hacl-pulse). When this
+  # secret is unset, the runner's own `gh auth login` is used instead.
+  GH_TOKEN: ${{ secrets.OLYMPUS_GH_TOKEN }}
+  # The number of parallel jobs (default: a share of the machine's cores).
+  OLYMPUS_JOBS: ${{ vars.OLYMPUS_JOBS }}
 
 jobs:
-  build:
-    name: F* and all projects
+  setup:
+    name: Set up
     # Never run code from a fork on the self-hosted runner.
     if: >-
       github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, linux, x64, olympus]
-    timeout-minutes: 720
+    timeout-minutes: 120
     defaults:
       run:
         shell: bash
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
-      # By default (clean: true), this also deletes the previous build in
-      # _work, so each build starts from scratch.
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
-      - name: Check the runner's prerequisites
-        run: |
-          if [ -d "$HOME/.cargo/bin" ]; then
-            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-            export PATH="$HOME/.cargo/bin:$PATH"
-          fi
-          missing=
-          for c in opam gh git make gcc clang++ llvm-config-20 clang-format \
-                   cargo rustfmt dotnet python3 cmake ninja jq unzip /usr/bin/time; do
-            command -v "$c" > /dev/null || missing="$missing $c"
-          done
-          if [ -n "$missing" ]; then
-            echo "::error::Missing on this runner:$missing (see README.md)"
-            exit 1
-          fi
+      - uses: ./.github/actions/olympus-runner
+        with:
+          jobs: all
 
-      - name: Set up opam
+      # Seconds, and the first thing that runs: a repository that the runner
+      # cannot read is the one failure that used to cost a whole day.
+      - name: Check that every repository can be read
+        id: preflight
+        run: scripts/ci/preflight.sh 2>&1 | tee "$RUNNER_TEMP/preflight.txt"
+
+      - name: Forget the results of the last run
+        run: rm -f "$OLYMPUS_WORK"/status/* "$OLYMPUS_WORK"/logs/*.diagnostics.log
+
+      - name: Set up opam and Z3
         run: scripts/setup.sh
 
-      - name: Build
-        timeout-minutes: 690
+      # Only to get the clones out of the way before the jobs start; each
+      # target's own job checks out what it builds. A project that cannot be
+      # checked out is left to its own job, which reports it properly.
+      - name: Check out every project
+        run: |
+          rc=0
+          for p in everparse pal kuiper pulse-verified-gc AlgoStar hacl-pulse; do
+            scripts/checkout.sh "$p" || { echo "::warning::$p: checkout failed"; rc=1; }
+          done
+          [ "$rc" = 0 ] || echo "Leaving the above to the jobs that build them."
+
+      - name: Work out which targets to build
+        id: matrix
         env:
-          # Read access to the private project repositories (hacl-pulse),
-          # for scripts/checkout.sh. Without this secret, the runner's own
-          # `gh auth login` is used.
-          GH_TOKEN: ${{ secrets.OLYMPUS_GH_TOKEN }}
-          # The number of parallel jobs (default: the number of cores).
-          OLYMPUS_JOBS: ${{ vars.OLYMPUS_JOBS }}
-        run: make -k -j"${OLYMPUS_JOBS:-$(nproc)}" CLEAN=1
+          TARGETS: ${{ inputs.targets }}
+        run: |
+          # Unquoted on purpose: TARGETS is a list of target names.
+          # shellcheck disable=SC2086
+          matrix=$(scripts/ci/matrix.sh $TARGETS)
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "Building after F*: $(jq -r '[.[].target] | join(" ")' <<< "$matrix")"
 
       - name: Summary
         if: always()
         run: |
           {
-            echo '### Build results'
+            echo '### Set up'
+            echo
+            echo 'Building from scratch: `CLEAN='"$CLEAN"'`.'
+            echo
             echo '```'
-            scripts/status.sh
+            cat "$RUNNER_TEMP/preflight.txt" 2> /dev/null \
+              || echo '(the repository access check did not run)'
             echo '```'
-            for f in _work/status/*; do
-              [ -e "$f" ] || continue
-              read -r result _ < "$f"
-              if [ "$result" != ok ]; then
-                t=${f##*/}
-                echo "<details><summary>End of the log of $t</summary>"
-                echo
-                echo '```'
-                tail -n 100 "_work/logs/$t.log"
-                echo '```'
-                echo '</details>'
-              fi
-            done
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Upload the logs
-        if: failure() || cancelled()
+  fstar:
+    name: F*
+    needs: setup
+    runs-on: [self-hosted, linux, x64, olympus]
+    timeout-minutes: 80
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # This job has the machine to itself: everything else waits for it.
+      - uses: ./.github/actions/olympus-runner
+        with:
+          jobs: all
+
+      - name: Build F* and install it as a package
+        run: scripts/run.sh FStar
+
+      - name: Summary
+        if: always()
+        run: scripts/ci/job-summary.sh FStar
+
+      - name: Collect the log
+        if: always()
+        run: scripts/ci/collect-logs.sh FStar
+
+      - name: Upload the log
+        if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: logs-${{ github.run_attempt }}
-          path: _work/logs/
-          retention-days: 7
-          if-no-files-found: ignore
+          name: log-FStar
+          path: ci-logs/
+          retention-days: 14
+          if-no-files-found: warn
+
+  check:
+    # One job per target: its own line in the graph, its own log and its own
+    # limit. These run in parallel, as far as the machine's runners allow.
+    name: ${{ matrix.target }}
+    needs: [setup, fstar]
+    # A workflow_dispatch can ask for F* alone, leaving nothing to fan out.
+    if: needs.setup.outputs.matrix != '[]'
+    runs-on: [self-hosted, linux, x64, olympus]
+    timeout-minutes: ${{ matrix.job_minutes }}
+    strategy:
+      # One project failing says nothing about the others, and the point of
+      # a run is to learn the state of all of them.
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.setup.outputs.matrix) }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/olympus-runner
+        with:
+          jobs: share
+
+      - name: Build ${{ matrix.target }}
+        run: scripts/run.sh '${{ matrix.target }}'
+
+      - name: Summary
+        if: always()
+        run: scripts/ci/job-summary.sh '${{ matrix.target }}'
+
+      - name: Collect the log
+        if: always()
+        run: scripts/ci/collect-logs.sh '${{ matrix.target }}'
+
+      - name: Upload the log
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: log-${{ matrix.target }}
+          path: ci-logs/
+          retention-days: 14
+          if-no-files-found: warn
+
+  summary:
+    name: Summary
+    needs: [setup, fstar, check]
+    if: always() && needs.setup.result != 'skipped'
+    runs-on: [self-hosted, linux, x64, olympus]
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/olympus-runner
+
+      - name: Collect the results of every target
+        run: |
+          {
+            echo '## Build results'
+            echo
+            scripts/status.sh --markdown
+            echo
+            cat <<'NOTE'
+          The whole log of each target is in its `log-<target>` artifact, and
+          its end is in the summary of that target's own job.
+          NOTE
+          } >> "$GITHUB_STEP_SUMMARY"
+          scripts/status.sh
+
+      - name: Collect every log
+        if: always()
+        run: scripts/ci/collect-logs.sh
+
+      - name: Upload every log
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: logs
+          path: ci-logs/
+          retention-days: 14
+          if-no-files-found: warn
+
+      # One check that says whether the invariant of hashes.txt still holds:
+      # every target this run asked for built, at the commit recorded for it.
+      - name: Check that every target succeeded
+        env:
+          MATRIX: ${{ needs.setup.outputs.matrix }}
+        run: |
+          # Unquoted on purpose: a list of target names.
+          # shellcheck disable=SC2046
+          scripts/ci/check.sh FStar $(jq -r '.[].target' <<< "$MATRIX")

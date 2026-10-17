@@ -2,6 +2,7 @@
 # pulse-verified-gc: the steps of its CI (.github/workflows/verify.yml). The
 # steps that CI runs serially are run serially here too.
 
+# shellcheck source=scripts/lib.sh
 source "$(dirname "$0")/../lib.sh"
 olympus_env
 cd "$(src_dir pulse-verified-gc)"

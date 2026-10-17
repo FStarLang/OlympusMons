@@ -1,0 +1,79 @@
+name: Set up the OlympusMons runner
+description: >
+  Check that the self-hosted runner has what the builds need, and put the
+  shared build tree, the parallelism and the PATH into the environment of
+  the job's later steps. Every job of the Build workflow starts with this.
+
+inputs:
+  jobs:
+    description: >
+      How much of the machine this job's build may use. "all" is every core,
+      for a job that has the machine to itself; "share" is a fraction of
+      them, for the per-project jobs, which run alongside each other. The
+      OLYMPUS_JOBS repository variable overrides both.
+    default: share
+    required: false
+
+runs:
+  using: composite
+  steps:
+    - name: Check the runner's prerequisites
+      shell: bash
+      run: |
+        if [ -d "$HOME/.cargo/bin" ]; then
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/.cargo/bin:$PATH"
+        fi
+        missing=
+        for c in opam gh git make gcc clang++ llvm-config-20 clang-format \
+                 cargo rustfmt dotnet python3 cmake jq unzip /usr/bin/time; do
+          command -v "$c" > /dev/null || missing="$missing $c"
+        done
+        if [ -n "$missing" ]; then
+          echo "::error::Missing on this runner:$missing (see README.md)"
+          exit 1
+        fi
+
+    - name: Configure the build environment
+      shell: bash
+      env:
+        OLYMPUS_WANTED_JOBS: ${{ inputs.jobs }}
+      run: |
+        # The build tree lives outside the workspace, which actions/checkout
+        # wipes at the start of every job, so that the jobs of a run share
+        # one F* package and one set of clones. Builds are still from
+        # scratch: CLEAN=1 makes each checkout discard its build products.
+        # A workflow that must not disturb the Build workflow's tree (the
+        # nightly) names its own, in OLYMPUS_WORK_NAME.
+        work=${OLYMPUS_WORK:-$HOME/${OLYMPUS_WORK_NAME:-olympus-work}}
+        mkdir -p "$work"
+        echo "OLYMPUS_WORK=$work" >> "$GITHUB_ENV"
+
+        cores=$(nproc)
+        if [ -n "${OLYMPUS_JOBS:-}" ]; then
+          jobs=$OLYMPUS_JOBS
+        elif [ "$OLYMPUS_WANTED_JOBS" = all ]; then
+          jobs=$cores
+        else
+          # The project jobs run concurrently (one per runner on this
+          # machine), so each takes a share of the cores rather than all of
+          # them. Mild oversubscription is deliberate: these builds spend a
+          # good deal of their time waiting on one long pole.
+          jobs=$((cores / 4))
+          [ "$jobs" -lt 8 ] && jobs=8
+        fi
+        echo "JOBS=$jobs" >> "$GITHUB_ENV"
+
+        echo "::notice::$(hostname): $cores cores, $jobs jobs for this build, $(df -h --output=avail "$work" | tail -1 | tr -d ' ') free in $work"
+
+    - name: Report the state of the machine
+      shell: bash
+      run: |
+        echo "runner:  $RUNNER_NAME on $(hostname)"
+        echo "cores:   $(nproc), load$(cut -d' ' -f1-3 /proc/loadavg | sed 's/^/ /')"
+        free -h || true
+        df -h "$OLYMPUS_WORK" || true
+        # Builds of earlier runs that outlived their job would compete with
+        # this one for the machine, and are worth knowing about.
+        echo "other fstar.exe/z3 processes running as $(id -un):"
+        pgrep -a -u "$(id -un)" -f '(fstar\.exe|^z3)' | head -20 || echo "  (none)"

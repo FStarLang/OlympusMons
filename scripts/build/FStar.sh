@@ -6,7 +6,10 @@
 # An existing package built from the current commit is reused, unless
 # CLEAN=1.
 
+# shellcheck source=scripts/lib.sh
 source "$(dirname "$0")/../lib.sh"
+# The Z3 of this F* commit, for F* and every project built against it.
+"$OLYMPUS_ROOT/scripts/install-z3.sh"
 base_env
 cd "$(src_dir FStar)"
 

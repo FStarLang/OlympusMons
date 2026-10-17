@@ -4,6 +4,7 @@
 # submodules), so it is out of scope for OlympusMons; verification must
 # work with plain F*.
 
+# shellcheck source=scripts/lib.sh
 source "$(dirname "$0")/../lib.sh"
 olympus_env
 cd "$(src_dir kuiper)"
