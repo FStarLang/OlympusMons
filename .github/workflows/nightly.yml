@@ -141,9 +141,13 @@ jobs:
         if: steps.go.outputs.go == 'true'
         run: scripts/ci/preflight.sh
 
+      # The Z3 to install is the one that the candidate F* uses by default,
+      # which setup.sh reads from its source.
       - name: Set up opam and Z3
         if: steps.go.outputs.go == 'true'
-        run: scripts/setup.sh
+        run: |
+          scripts/checkout.sh FStar
+          scripts/setup.sh
 
       # Only to get the clones out of the way before the jobs start. A
       # project that cannot be checked out is left to its own job.
