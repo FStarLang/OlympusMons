@@ -237,20 +237,27 @@ demand: `gh workflow run Nightly`) it:
 
 ### Setting it up
 
-Two repository secrets (Settings, Secrets and variables, Actions):
+Three repository secrets (Settings, Secrets and variables, Actions). A token
+belongs to one organization, so pushing needs one per organization:
 
 * `COPILOT_GITHUB_TOKEN`: a fine-grained personal access token with the
   "Copilot Requests" permission, of an account with Copilot.
-* `OLYMPUS_PUSH_TOKEN`: a fine-grained personal access token (resource owner
-  FStarLang) with "Contents: read and write" on this repository and on
-  everparse, pal, kuiper, pulse-verified-gc, AlgoStar and hacl-pulse. It is
-  needed for publishing and for fixing.
+* `OLYMPUS_PUSH_TOKEN_FSTARLANG`: a fine-grained personal access token
+  (resource owner FStarLang) with "Contents: read and write" on this
+  repository and on pal, kuiper, pulse-verified-gc, AlgoStar and hacl-pulse.
+* `OLYMPUS_PUSH_TOKEN_PROJECT_EVEREST`: the same (resource owner
+  project-everest), on everparse.
 
-The **Set up** job checks, in seconds, that the tokens exist and that
-`OLYMPUS_PUSH_TOKEN` can push to every repository, and fails before anything
-expensive if not. Without `COPILOT_GITHUB_TOKEN` the nightly still runs but
-only reports, and does not publish a result that has failures. The runners
-need Node.js only for the Fix jobs, which install it and the Copilot CLI
+The push tokens are needed for publishing and for fixing. Which token pushes
+to which repository is decided by its owner, in `push_token_var_of` in
+[`scripts/lib.sh`](scripts/lib.sh); a project in a new organization needs a
+line there and a secret.
+
+The **Set up** job checks, in seconds, that the secrets exist and that each
+can push to every repository it is for, and fails before anything expensive
+if not. Without `COPILOT_GITHUB_TOKEN` the nightly still runs but only
+reports, and does not publish a result that has failures. The runners need
+Node.js only for the Fix jobs, which install it and the Copilot CLI
 themselves.
 
 `workflow_dispatch` takes: `fix` (off to only report), `publish` (off for a
@@ -262,7 +269,7 @@ dry run, which changes nothing), `force` (build even if nothing is newer),
 Copilot runs with `--yolo` on the runner, and the builds run arbitrary
 makefiles, so the tokens are kept apart: the Fix step has only the Copilot
 token, and `scripts/nightly/fix.sh` hands Copilot nothing but that (no GitHub
-login, no git configuration). The push token is used only by the Publish job,
+login, no git configuration). The push tokens are used only by the Publish job,
 and only by the commands that push, after everything has been built. Copilot
 never commits or pushes; the workflow does that, after checking the result.
 

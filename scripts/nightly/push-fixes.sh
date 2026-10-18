@@ -6,23 +6,19 @@
 # in $OLYMPUS_WORK/src. Never forced. All the pushes are tried as dry runs
 # first, so that a branch that has moved is found before any of them lands.
 #
-# Environment: OLYMPUS_PUSH_TOKEN, used only by the git commands that push.
+# Environment: OLYMPUS_PUSH_TOKEN_<ORG>, one for each organization that has a
+# project to push (see push_token_var_of in lib.sh), used only by the git
+# commands that push.
 
 # shellcheck source=scripts/lib.sh
 source "$(dirname "$0")/../lib.sh"
 
 candidate=${1:?usage: push-fixes.sh <candidate-hashes> <fixed-dir>}
 fixed=${2:?}
-: "${OLYMPUS_PUSH_TOKEN:?OLYMPUS_PUSH_TOKEN is not set}"
-export GIT_TERMINAL_PROMPT=0
 
 push () {
   local p=$1 rev=$2; shift 2
-  # shellcheck disable=SC2016
-  git -C "$(src_dir "$p")" \
-      -c credential.helper= \
-      -c 'credential.helper=!f() { echo username=x-access-token; echo "password=$OLYMPUS_PUSH_TOKEN"; }; f' \
-      push "$@" "https://github.com/$(repo_of "$p").git" "$rev:refs/heads/olympus"
+  git_push_to "$(repo_of "$p")" "$(src_dir "$p")" "$rev:refs/heads/olympus" "$@"
 }
 
 todo=()

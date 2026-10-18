@@ -98,7 +98,8 @@ jobs:
         id: tokens
         env:
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
-          OLYMPUS_PUSH_TOKEN: ${{ secrets.OLYMPUS_PUSH_TOKEN }}
+          OLYMPUS_PUSH_TOKEN_FSTARLANG: ${{ secrets.OLYMPUS_PUSH_TOKEN_FSTARLANG }}
+          OLYMPUS_PUSH_TOKEN_PROJECT_EVEREST: ${{ secrets.OLYMPUS_PUSH_TOKEN_PROJECT_EVEREST }}
           PUBLISH: ${{ github.event_name != 'workflow_dispatch' || inputs.publish }}
           FIX: ${{ github.event_name != 'workflow_dispatch' || inputs.fix }}
         run: scripts/nightly/preflight.sh
@@ -467,7 +468,7 @@ jobs:
           fetch-depth: 0
           # The token is what pushes, and what makes the push start a
           # Build of the new hashes.txt (the default token's pushes do not).
-          token: ${{ secrets.OLYMPUS_PUSH_TOKEN }}
+          token: ${{ secrets.OLYMPUS_PUSH_TOKEN_FSTARLANG }}
 
       - uses: ./.github/actions/olympus-runner
 
@@ -490,7 +491,8 @@ jobs:
             ${{ github.ref == 'refs/heads/main' &&
             (github.event_name != 'workflow_dispatch' || inputs.publish) && '1' || '0' }}
           BASE: ${{ github.sha }}
-          OLYMPUS_PUSH_TOKEN: ${{ secrets.OLYMPUS_PUSH_TOKEN }}
+          OLYMPUS_PUSH_TOKEN_FSTARLANG: ${{ secrets.OLYMPUS_PUSH_TOKEN_FSTARLANG }}
+          OLYMPUS_PUSH_TOKEN_PROJECT_EVEREST: ${{ secrets.OLYMPUS_PUSH_TOKEN_PROJECT_EVEREST }}
         run: |
           mkdir -p fixed
           {

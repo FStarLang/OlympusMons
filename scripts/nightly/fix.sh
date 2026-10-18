@@ -42,7 +42,7 @@ mkdir -p "$out" "$logs"
 
 # Nothing that runs here but Copilot gets a credential.
 copilot_token=${COPILOT_GITHUB_TOKEN:-}
-unset COPILOT_GITHUB_TOKEN OLYMPUS_PUSH_TOKEN GH_TOKEN GITHUB_TOKEN
+unset COPILOT_GITHUB_TOKEN OLYMPUS_PUSH_TOKEN_FSTARLANG OLYMPUS_PUSH_TOKEN_PROJECT_EVEREST GH_TOKEN GITHUB_TOKEN
 
 summary () { [ -n "${GITHUB_STEP_SUMMARY:-}" ] && printf '%s\n' "$*" >> "$GITHUB_STEP_SUMMARY"; return 0; }
 
