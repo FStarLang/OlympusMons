@@ -79,6 +79,40 @@ hash_of () {
   echo "$h"
 }
 
+# The secret that can push to repository $1 (owner/name): a token has one
+# resource owner, so there is one per organization (see "The nightly" in
+# README.md). Prints the name of the variable that holds it.
+push_token_var_of () {
+  case "${1%%/*}" in
+    FStarLang)        echo OLYMPUS_PUSH_TOKEN_FSTARLANG ;;
+    project-everest)  echo OLYMPUS_PUSH_TOKEN_PROJECT_EVEREST ;;
+    *) echo "no push token is configured for the organization of $1" >&2; return 1 ;;
+  esac
+}
+
+# git push, in directory $2, to repository $1 (owner/name), as the token of
+# its organization, which the credential helper hands to git and which is
+# otherwise not visible to it. $3 is the refspec; any more arguments are
+# options of `git push`. Fails if there is no such token.
+git_push_to () {
+  local repo=$1 dir=$2 refspec=$3 var tok
+  shift 3
+  var=$(push_token_var_of "$repo")
+  case $var in
+    OLYMPUS_PUSH_TOKEN_FSTARLANG) tok=${OLYMPUS_PUSH_TOKEN_FSTARLANG:-} ;;
+    OLYMPUS_PUSH_TOKEN_PROJECT_EVEREST) tok=${OLYMPUS_PUSH_TOKEN_PROJECT_EVEREST:-} ;;
+  esac
+  if [ -z "$tok" ]; then
+    echo "$var is not set: cannot push to $repo" >&2
+    return 1
+  fi
+  # shellcheck disable=SC2016  # expanded by the helper, from the environment
+  GIT_TERMINAL_PROMPT=0 OLYMPUS_PUSH_TOKEN_NOW=$tok git -C "$dir" \
+      -c credential.helper= \
+      -c 'credential.helper=!f() { echo username=x-access-token; echo "password=$OLYMPUS_PUSH_TOKEN_NOW"; }; f' \
+      push "$@" "https://github.com/$repo.git" "$refspec"
+}
+
 src_dir () { echo "$OLYMPUS_WORK/src/$1"; }
 
 # How long target $1 may run before run.sh kills it and reports what it was

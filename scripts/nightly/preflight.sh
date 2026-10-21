@@ -2,11 +2,12 @@
 # Usage: scripts/nightly/preflight.sh
 #
 # Fail fast, in the first job rather than the last, if the nightly could not
-# do what it is for: record its result needs to push to OlympusMons, and
+# do what it is for: recording its result needs to push to OlympusMons, and
 # fixing needs Copilot and push access to every project.
 #
-# Environment: PUBLISH and FIX (true/false), COPILOT_GITHUB_TOKEN,
-# OLYMPUS_PUSH_TOKEN. Sets `fix` (true/false) in $GITHUB_OUTPUT.
+# Environment: PUBLISH and FIX (true/false), COPILOT_GITHUB_TOKEN, and the
+# push token of each organization, OLYMPUS_PUSH_TOKEN_FSTARLANG and
+# OLYMPUS_PUSH_TOKEN_PROJECT_EVEREST (see push_token_var_of in lib.sh). Sets `fix` (true/false) in $GITHUB_OUTPUT.
 
 # shellcheck source=scripts/lib.sh
 source "$(dirname "$0")/../lib.sh"
@@ -15,48 +16,55 @@ problems=0
 fix=true
 problem () { echo "::error::$*"; problems=1; }
 
-if [ -z "${OLYMPUS_PUSH_TOKEN:-}" ]; then
-  if [ "${PUBLISH:-true}" = true ]; then
-    problem "the secret OLYMPUS_PUSH_TOKEN is not set: the nightly cannot push (publish=false would skip that)"
-  else
-    echo "::warning::OLYMPUS_PUSH_TOKEN is not set: fixes could not be pushed, so there will be none"
-    fix=false
-  fi
-fi
 if [ -z "${COPILOT_GITHUB_TOKEN:-}" ]; then
   echo "::warning::the secret COPILOT_GITHUB_TOKEN is not set: failures will not be fixed"
   fix=false
 fi
 [ "${FIX:-true}" = true ] || fix=false
 
-# Can the token write where it must? A dry run of a push authenticates and
-# checks permissions, and changes nothing.
+# What the push tokens must be able to write to: this repository, to publish,
+# and every project, to publish a fix to its olympus branch.
+publish_repo=${GITHUB_REPOSITORY:-FStarLang/OlympusMons}
+project_repos=()
+for p in "${PROJECTS[@]}"; do
+  [ "$p" = FStar ] || project_repos+=("$(repo_of "$p")")
+done
+
+# Is there a token for the repository's organization, and can it write there?
+# A dry run of a push authenticates and checks permissions, and changes
+# nothing. Prints nothing and returns 1 if it cannot.
+probe=$(mktemp -d)
+trap 'rm -rf "$probe"' EXIT
+git -C "$probe" init -q
+git -C "$probe" -c user.name=probe -c user.email=probe@example.com commit -q --allow-empty -m probe
 can_push () {
-  local dir=$1 repo=$2
-  # shellcheck disable=SC2016
-  env OLYMPUS_PUSH_TOKEN="$OLYMPUS_PUSH_TOKEN" GIT_TERMINAL_PROMPT=0 git -C "$dir" \
-      -c credential.helper= \
-      -c 'credential.helper=!f() { echo username=x-access-token; echo "password=$OLYMPUS_PUSH_TOKEN"; }; f' \
-      push --dry-run "https://github.com/$repo.git" HEAD:refs/heads/olympus-nightly-probe \
-      > /dev/null 2>&1
+  local repo=$1 var
+  var=$(push_token_var_of "$repo") || { echo "  $repo: no secret for its organization"; return 1; }
+  if ! git_push_to "$repo" "$probe" HEAD:refs/heads/olympus-nightly-probe --dry-run > /dev/null 2>&1; then
+    echo "  $repo: cannot push (is the secret $var set, and allowed to write there?)"
+    return 1
+  fi
+  echo "  can push to $repo"
 }
 
-if [ -n "${OLYMPUS_PUSH_TOKEN:-}" ]; then
-  repos=("${GITHUB_REPOSITORY:-FStarLang/OlympusMons}")
-  [ "$fix" = true ] && for p in "${PROJECTS[@]}"; do
-    [ "$p" = FStar ] || repos+=("$(repo_of "$p")")
+if [ "${PUBLISH:-true}" = true ]; then
+  can_push "$publish_repo" || problem "cannot publish: the secret for $publish_repo is missing or cannot push to it (publish=false skips this)"
+fi
+if [ "$fix" = true ]; then
+  bad=()
+  for r in "${project_repos[@]}"; do
+    can_push "$r" || bad+=("$r")
   done
-  probe=$(mktemp -d)
-  git -C "$probe" init -q
-  git -C "$probe" -c user.name=probe -c user.email=probe@example.com commit -q --allow-empty -m probe
-  for r in "${repos[@]}"; do
-    if can_push "$probe" "$r"; then
-      printf '  can push to %s\n' "$r"
+  if [ "${#bad[@]}" -gt 0 ]; then
+    # Publishing a result that was fixed needs every project's token, and
+    # fixing without publishing is pointless.
+    if [ "${PUBLISH:-true}" = true ]; then
+      problem "a fix could not be pushed to: ${bad[*]}"
     else
-      problem "OLYMPUS_PUSH_TOKEN cannot push to $r"
+      echo "::warning::cannot push to: ${bad[*]}; failures will not be fixed"
+      fix=false
     fi
-  done
-  rm -rf "$probe"
+  fi
 fi
 
 [ -n "${GITHUB_OUTPUT:-}" ] && echo "fix=$fix" >> "$GITHUB_OUTPUT"
