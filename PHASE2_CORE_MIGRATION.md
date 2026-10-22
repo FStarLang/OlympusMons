@@ -13,41 +13,61 @@ This report covers the upgrade of every OlympusMons project from F* `master`
 
 Short version:
 
-* 7 commits were pushed to the PR branch: 4 fixes, 2 Custard fixes and 1 Pulse
-  library change.
+* Round 1 (§1–§6): 7 commits were pushed to the PR branch: 4 fixes, 2
+  Custard fixes and 1 Pulse library change.
 * 1 project change fixes a **genuine spec bug**: an ill-formed Pulse
   postcondition in hacl-pulse that the old Core accepted.
-* 35 project changes are proof-robustness workarounds: asserts, helper lemmas,
-  and local fuel/rlimit/option changes.
-* pal needed no change.
+* 35 round-1 project changes are proof-robustness workarounds: asserts, helper
+  lemmas, and local fuel/rlimit/option changes. pal needed no change.
+* Round 2 (§7): the latest PR commits, F* `master` and every project's
+  `master`/`main` were merged. This exposed 4 more checker bugs, fixed in the
+  PR (§7.2.1–§7.2.4), plus 2 proofs made fragile or re-checkable (§7.2.5–§7.2.6),
+  and needed a few more project workarounds (§7.4).
 * The full clean build of all 8 targets passes.
 
 ---
 
 ## 1. Result
 
-### 1.1 Pins (`hashes.txt`, OlympusMons commit [`2b8d8c1`](https://github.com/FStarLang/OlympusMons/commit/2b8d8c1e3b4f96b0d55c979638e468783ad2fabe), branch `olympus_phase2_core`)
+### 1.1 Pins (`hashes.txt`, branch `olympus_phase2_core`)
 
-| Project | Before (`main`) | After (`olympus_phase2_core`) | Commits |
+| Project | Before (`main`) | Round 1 | Round 2 (current) |
 |---|---|---|---|
-| FStar | `285d2038e2` (master) | [`b7cd6d4daa`](https://github.com/FStarLang/FStar/commit/b7cd6d4daa19eae8b34f754e961f47abc675db62) (`_phase2_core`) | PR head `8615b44ee6` + 7 |
-| everparse | `56efa51529` | [`071a7d4551`](https://github.com/project-everest/everparse/commit/071a7d4551c299d1a8de2b51452d67fd0722aaca) | 1 |
-| pal | `51b8c40fe3` | `51b8c40fe3` (unchanged) | 0 |
-| kuiper | `b5477e22c7` | [`8487b55cfe`](https://github.com/FStarLang/kuiper/commit/8487b55cfeba4d34ff7e9fa117be58266353e239) | 6 |
-| pulse-verified-gc | `ff83de91ce` | [`589bf2e88e`](https://github.com/FStarLang/pulse-verified-gc/commit/589bf2e88ed03bc489c0b638303d90730fdcb4a7) | 4 |
-| AlgoStar | `1434213760` | [`018870fa82`](https://github.com/FStarLang/AlgoStar/commit/018870fa826ccda4ef945eb6763e789c8684a9d5) | 12 |
-| hacl-pulse | `bc7c41e429` | [`49c09320c3`](https://github.com/FStarLang/hacl-pulse/commit/49c09320c36cc80638220ee611debf481312df5c) | 13 |
+| FStar | `285d2038e2` (master) | [`b7cd6d4daa`](https://github.com/FStarLang/FStar/commit/b7cd6d4daa19eae8b34f754e961f47abc675db62) | [`055a40ba30`](https://github.com/FStarLang/FStar/commit/055a40ba30c62f9c6abaa74c56d791f75eb5e206) (`_phase2_core`; contains PR head `a314b0967a` and master `18c5d4a409`) |
+| everparse | `56efa51529` | [`071a7d4551`](https://github.com/project-everest/everparse/commit/071a7d4551c299d1a8de2b51452d67fd0722aaca) | [`c44e47f990`](https://github.com/project-everest/everparse/commit/c44e47f9904aa2d30d665d56dcb1c4cc3409e9fb) |
+| pal | `51b8c40fe3` | `51b8c40fe3` (unchanged) | [`58f168f7f1`](https://github.com/FStarLang/pal/commit/58f168f7f1e7e2fff50e348d415276a4edf168d6) (master, unchanged) |
+| kuiper | `b5477e22c7` | [`8487b55cfe`](https://github.com/FStarLang/kuiper/commit/8487b55cfeba4d34ff7e9fa117be58266353e239) | [`d2de7ad970`](https://github.com/FStarLang/kuiper/commit/d2de7ad97098d021d963908342fddfb3717dd6c7) |
+| pulse-verified-gc | `ff83de91ce` | [`589bf2e88e`](https://github.com/FStarLang/pulse-verified-gc/commit/589bf2e88ed03bc489c0b638303d90730fdcb4a7) | [`3ee7803862`](https://github.com/FStarLang/pulse-verified-gc/commit/3ee7803862fec49d76f4c70e24a9cdda991308ab) |
+| AlgoStar | `1434213760` | [`018870fa82`](https://github.com/FStarLang/AlgoStar/commit/018870fa826ccda4ef945eb6763e789c8684a9d5) | [`910f8785b9`](https://github.com/FStarLang/AlgoStar/commit/910f8785b9a8704790f0cb1f01ca2b3a8593d3b0) |
+| hacl-pulse | `bc7c41e429` | [`49c09320c3`](https://github.com/FStarLang/hacl-pulse/commit/49c09320c36cc80638220ee611debf481312df5c) | [`385da8c6eb`](https://github.com/FStarLang/hacl-pulse/commit/385da8c6ebd5c830052b6608c78425715e9c473e) |
 
-Each project's `olympus_phase2_core` branch is its previously pinned commit
-plus the commits listed in §4. Each commit carries an `Olympus-Change:` trailer:
+Round 1 (OlympusMons [`2b8d8c1`](https://github.com/FStarLang/OlympusMons/commit/2b8d8c1e3b4f96b0d55c979638e468783ad2fabe)): each project's
+`olympus_phase2_core` branch was its previously pinned commit plus the commits
+listed in §4. Round 2: that branch merges the project's current `master`/`main`
+and adds the commits in §7.3–§7.4. Each commit carries an `Olympus-Change:`
+trailer:
 
 * `minimal`: a genuine fix;
 * `fstar-regression-workaround`: a proof made robust to the new checker.
 
 ### 1.2 Final clean build (`make -k -j128 CLEAN=1`)
 
-| Target | Time | Result |
-|---|---|---|
+| Target | Round 1 | Round 2 (current) | Result |
+|---|---|---|---|
+| FStar | 10m51s | 15m15s | ✅ |
+| FStar-ci | 52m | 1h08m53s | ✅ |
+| everparse | 1h35m | 1h55m36s | ✅ |
+| pal | 25m | 38m44s | ✅ |
+| kuiper | 1h07m | 1h28m20s | ✅ |
+| pulse-verified-gc | 52m | 1h13m12s | ✅ |
+| AlgoStar | 17m | 29m00s | ✅ |
+| hacl-pulse | 1h10m | 1h36m36s | ✅ |
+
+Round-2 times are longer. The projects' `master`/`main` grew (e.g. kuiper's
+new TensorCore2D kernels, EverParse's new 3D hash tests), and the machine was
+shared with other jobs; the times were not investigated further.
+
+---|---|---|
 | FStar | 10m51s | ✅ |
 | FStar-ci | 52m | ✅ |
 | everparse | 1h35m | ✅ |
@@ -470,3 +490,343 @@ No changes. Its three failures (`Func_lookup`, `Func_next_color`,
    lemma call. Ordering these goals as TcTerm does would likely remove most of
    them.
 6. **§3.6:** file a Z3 issue for the two rlimit-ignoring queries.
+
+---
+
+## 7. Round 2: latest PR, F* master and project masters merged
+
+In this round:
+
+* the PR branch was brought up to date with the PR commits pushed after round 1;
+* F* `master` was merged into the PR branch;
+* each project's `master`/`main` was merged into its `olympus_phase2_core` branch;
+* the full clean build was made to pass again.
+
+§1 shows the state after this round. This section records how it got there.
+
+### 7.1 F* (`_phase2_core`, [`b7cd6d4daa...055a40ba30`](https://github.com/FStarLang/FStar/compare/b7cd6d4daa19eae8b34f754e961f47abc675db62...055a40ba30c62f9c6abaa74c56d791f75eb5e206))
+
+In order on the first-parent line:
+
+| Commit | What |
+|---|---|
+| [`121177b969`](https://github.com/FStarLang/FStar/commit/121177b969c4cd3e04f1ff8c9305e6fdf9ef6a77) | merge F* `master` [`45697a089b`](https://github.com/FStarLang/FStar/commit/45697a089b84d93125ac739214adc8316fd5f844) |
+| [`0f0822f009`](https://github.com/FStarLang/FStar/commit/0f0822f009848a388c39b7a8f9867afeaa9900ef) | **fix** typeclass resolution under an open context (§7.2.1) |
+| [`827182b3b0`](https://github.com/FStarLang/FStar/commit/827182b3b01a6dfe06654d8e43436abb490a2dfc) | **fix** `dedup_vc` blocked by Core's labels (§7.2.2) |
+| [`82b277a282`](https://github.com/FStarLang/FStar/commit/82b277a282c2efce3915a29e871461c3cf282b26) | **fix** the #4615 heuristic dropped preconditions' atoms (§7.2.3) |
+| [`2a5a217d43`](https://github.com/FStarLang/FStar/commit/2a5a217d43ed21f17057055acd742774aafe3042) | merge of the PR commits pushed meanwhile; see the note below |
+| [`d4dad4862b`](https://github.com/FStarLang/FStar/commit/d4dad4862b5339123b8caff6cc49571b0e9bdc90) | merge F* `master` [`629d22c5b5`](https://github.com/FStarLang/FStar/commit/629d22c5b54798e67234e3efc052d83871c3c56b) |
+| [`3afe8c7f52`](https://github.com/FStarLang/FStar/commit/3afe8c7f52496bee93c8505b90b72cbf42864e68) | `tests/tactics/Postprocess.fst.output.expected`: gensym numbers shifted by the merge (`i#176`→`i#189`, `f#177`→`f#190`) |
+| [`eb8dc8e48d`](https://github.com/FStarLang/FStar/commit/eb8dc8e48d1bf86252db62e8a5ab8dc0ccc40078) | **fix** a regression from `69b90c37eb`: let annotations checked before definitions (§7.2.4) |
+| [`d8e8d01d41`](https://github.com/FStarLang/FStar/commit/d8e8d01d41b0f3350a316cdc2f482b07ec76acf8) | merge F* `master` [`72e5af4097`](https://github.com/FStarLang/FStar/commit/72e5af4097517dca6d54eddd62d861d5db0b87bd) (three Custard PRs: #4752, #4753, #4754) |
+| [`aa8f57b17d`](https://github.com/FStarLang/FStar/commit/aa8f57b17d99530d871701db405dcae17e54b8e3) | `Pulse.Lib.PriorityQueue`: state a fragile nonlinear WF fact (§7.2.5) |
+| [`1ff23d1f60`](https://github.com/FStarLang/FStar/commit/1ff23d1f60566f7eae219b39252ae623df71b72e) | merge the PR's [`fffa270f55`](https://github.com/FStarLang/FStar/commit/fffa270f558e7b7717e3022207c14f65f9d0cd1c) "Core: compute facts in the same pass as types" and [`a314b0967a`](https://github.com/FStarLang/FStar/commit/a314b0967ac0b682121c72435ce602a6bea89d5b); see the note below |
+| [`055a40ba30`](https://github.com/FStarLang/FStar/commit/055a40ba30c62f9c6abaa74c56d791f75eb5e206) | merge F* `master` [`18c5d4a409`](https://github.com/FStarLang/FStar/commit/18c5d4a409a91e92dc968816305af1763b521e5b) (#4761, Custard: discard unused results before local liveness analysis) |
+
+Note on [`2a5a217d43`](https://github.com/FStarLang/FStar/commit/2a5a217d43ed21f17057055acd742774aafe3042): it merges the PR commits pushed while this round was running:
+
+* [`fd6aee436f`](https://github.com/FStarLang/FStar/commit/fd6aee436f1f44fb5052bd46ec16c90402191673)
+* [`a27f2fdbaf`](https://github.com/FStarLang/FStar/commit/a27f2fdbaf71bd5be9a2be4f6e4e3c09b870d9fc) "Run synth_by_tactic proofs in Core"
+* [`69b90c37eb`](https://github.com/FStarLang/FStar/commit/69b90c37eb27249e5f78964847f59f12680b895c) "Core: check let definitions bidirectionally, in one pass"
+* [`07a25f0447`](https://github.com/FStarLang/FStar/commit/07a25f04472fc1ec9c8bbc06a9a8b36bbdb22105)
+
+Each merge of `master` was clean except for the Postprocess gensym numbers.
+
+Note on `1ff23d1f60`: `fffa270f55` rewrote `check_let_def` to return the definition's facts and dropped its cache insert. That conflicted with §7.2.4's `eb8dc8e48d`. The resolution keeps `fffa270f55`'s version and moves the universe check of the annotation after the definition, as `eb8dc8e48d` does: [Core.fst L3263–L3283](https://github.com/FStarLang/FStar/blob/055a40ba30c62f9c6abaa74c56d791f75eb5e206/src/typechecker/FStarC.TypeChecker.Core.fst#L3263-L3283).
+
+### 7.2 Exposed checker bugs (all fixed in the PR)
+
+#### 7.2.1 Typeclass goals under an open context were solved in arbitrary order ([`0f0822f009`](https://github.com/FStarLang/FStar/commit/0f0822f009848a388c39b7a8f9867afeaa9900ef))
+
+**Exposed by:** kuiper `Kuiper.Kernel.GEMMGPU.Type.fst(70)`: "Could not solve typeclass constraint `can_approximate (chest2 et ?u ?u) …`".
+
+**Cause:**
+
+* The context had free uvars: a signature binder `eC : chest2 et ?u ?u`.
+* Because of that, `gamma_has_free_uvars` treated every typeclass goal as open.
+* Once `Defer_open` made no progress, the fallback solved all goals eagerly, in list order.
+* That order flips each iteration. `can_approximate (chest2 et ?u ?u) …` could therefore be tried, and fail, before `has_pts_to (array2 et lC) (chest2 et ?u ?u)`, the goal that determines `?u`.
+* Whether this happens depends on goal order, not on the PR. The new test fails on F* master and on the PR, at different functions.
+
+**Fix:**
+
+* A new intermediate pass, `Defer_open_typ`, only runs goals whose own type is closed (modulo fundep positions). The order is now `Defer_open` → `Defer_open_typ` → `Defer_none`.
+* The transition reverses the list (`List.rev`) to keep the old parity. Without it, Bug2021's reported unresolved implicit changed.
+
+**Where:**
+
+* [Rel.fst L5682–L5691](https://github.com/FStarLang/FStar/blob/0f0822f009848a388c39b7a8f9867afeaa9900ef/src/typechecker/FStarC.TypeChecker.Rel.fst#L5682-L5691)
+* [L5764–L5776](https://github.com/FStarLang/FStar/blob/0f0822f009848a388c39b7a8f9867afeaa9900ef/src/typechecker/FStarC.TypeChecker.Rel.fst#L5764-L5776)
+* [L5861–L5867](https://github.com/FStarLang/FStar/blob/0f0822f009848a388c39b7a8f9867afeaa9900ef/src/typechecker/FStarC.TypeChecker.Rel.fst#L5861-L5867)
+* test [tests/typeclasses/FundepsOpenCtx.fst](https://github.com/FStarLang/FStar/blob/0f0822f009848a388c39b7a8f9867afeaa9900ef/tests/typeclasses/FundepsOpenCtx.fst)
+
+#### 7.2.2 `dedup_vc` did not look through Core's error labels ([`827182b3b0`](https://github.com/FStarLang/FStar/commit/827182b3b01a6dfe06654d8e43436abb490a2dfc))
+
+**Cause:**
+
+* PR Core wraps every guard it emits in a `Meta_labeled` node ("Could not prove post-condition").
+* `dedup_vc` treated a labeled subterm as an atom.
+* As a result, conjuncts restated by later preconditions were no longer dropped. An example is a lemma's `requires` that an earlier call had already proven.
+* Master puts no labels there, so it deduplicates those conjuncts.
+
+**Effect:** VCs were larger than on master. This contributed to AlgoStar and hacl timeouts.
+
+**Fix:** descend through `Meta_labeled` and keep the label on what remains. See [Rel.fst L5246–L5254](https://github.com/FStarLang/FStar/blob/827182b3b01a6dfe06654d8e43436abb490a2dfc/src/typechecker/FStarC.TypeChecker.Rel.fst#L5246-L5254).
+
+#### 7.2.3 The #4615 heuristic dropped atoms the query already assumes ([`82b277a282`](https://github.com/FStarLang/FStar/commit/82b277a282c2efce3915a29e871461c3cf282b26))
+
+**Background:**
+
+* PR commit [`1d92bae8fe`](https://github.com/FStarLang/FStar/commit/1d92bae8feb029d5b615ea5887d99f494fc40d49), the fix for FStarLang/FStar#4615, changed `split_goals_under`.
+* A proven sibling conjunct that mentions a definition with a quantified body (`hides_quantifier`) is no longer assumed.
+
+**Problem:**
+
+* That also dropped atoms the query already had.
+* In AlgoStar `RadixSort.Spec`, the lemma's own precondition `is_stable_sort_by_digit s_in s_out d base` is re-proven for a recursive call.
+* The solver had the quantifier through the precondition anyway, but lost the ground atom, so goals that relied on it timed out.
+
+**Bisect:**
+
+* A temporary environment toggle disabling the heuristic fixed:
+  * AlgoStar KMP.Bridge, DFS.Spec, Heap.ImplTest and RadixSort;
+  * hacl `Spec.Bignum4` and `Spec.Ed25519.Group`.
+* With the toggle, Bug4615 failed on z3 seeds 0, 3 and 5.
+
+**Fix:**
+
+* Record a hash of each quantifier-free conjunct of the query's squash-typed binders (preconditions) and of implication premises.
+* Still assume a quantifier-hiding sibling when its encoding is one of them. Assuming a proven sibling is always sound.
+* Bug4615 still passes on seeds 0–5.
+
+**Where:**
+
+* [ErrorReporting.fst L218–L234](https://github.com/FStarLang/FStar/blob/82b277a282c2efce3915a29e871461c3cf282b26/src/smtencoding/FStarC.SMTEncoding.ErrorReporting.fst#L218-L234)
+* [L305–L308](https://github.com/FStarLang/FStar/blob/82b277a282c2efce3915a29e871461c3cf282b26/src/smtencoding/FStarC.SMTEncoding.ErrorReporting.fst#L305-L308)
+* [L419–L422](https://github.com/FStarLang/FStar/blob/82b277a282c2efce3915a29e871461c3cf282b26/src/smtencoding/FStarC.SMTEncoding.ErrorReporting.fst#L419-L422)
+* doc [core_typechecking.md L606–L610](https://github.com/FStarLang/FStar/blob/82b277a282c2efce3915a29e871461c3cf282b26/doc/ref/core_typechecking.md#L606-L610)
+
+#### 7.2.4 `69b90c37eb` checked a let's annotation before its definition, dropping WF facts from the body ([`eb8dc8e48d`](https://github.com/FStarLang/FStar/commit/eb8dc8e48d1bf86252db62e8a5ab8dc0ccc40078))
+
+This is the most interesting finding of the round. After merging the new PR commits, 7 hacl-pulse spec files regressed:
+
+* `Spec.GF128.Poly:107`
+* `Spec.RSAPSS:176`
+* `Spec.Chacha20Poly1305:66`
+* `Spec.Bignum4:646`
+* `Spec.Ed25519.Group:547`
+* `Spec.Bignum52.Window:129`
+* `Spec.Poly1305.Vec:223`
+
+So did 3 AlgoStar files.
+
+**Bisect:** a build of `d4dad4862b` with `69b90c37eb` and `07a25f0447` reverted passes GF128.Poly, RSAPSS, Chacha20Poly1305, Bignum4 and Ed25519.Group.
+
+**Cause:**
+
+* `check_let_def` now ran `universe_of g lb.lbtyp` *before* checking the definition.
+* Take a local lemma `aux (j:nat{j<16}) : Lemma (index a j == index b j)` whose body binds another annotated local lemma `f`. An example is hacl `Spec.GF128.Poly.bits_inj`: [Spec.GF128.Poly.fst L100–L110](https://github.com/FStarLang/hacl-pulse/blob/a1ce905862628825894611cb3e3d71a7e0a5b17b/spec/Spec.GF128.Poly.fst#L100-L110).
+* Checking `aux`'s annotation first emitted its well-formedness guards (`j < 16 ==> j < length a`) closed over the arrow's binder, as a separate conjunct.
+* `f`'s identical guards inside the body were then dropped as guard-cache hits (`guard`, via `raw_lookup_guard` with `context_included`).
+* So the body's goals lost those facts as hypotheses:
+
+  ```
+  before 69b90c37eb:  forall j. WF(j) /\ (forall k. body(j,k))      -- WF(j) assumed for body
+  with 69b90c37eb:    (forall j. WF(j)) /\ (forall j k. body(j,k))   -- only a quantified sibling
+  ```
+
+  A minimal repro of the VC shape is a 15-line file with assumed `bit`/`bit_at`, mirroring `bits_inj`.
+
+**Why it times out:**
+
+* In GF128 this exposed a Z3 matching loop.
+* The `requires` `forall (i:nat). i < 128 ==> bit a i == bit b i` has no pattern. Z3 infers the triggers `HasTypeFuel MaxIFuel x nat` and `BoxInt_proj_0 x`, which produced 7227 instances in the failing query.
+* With an explicit `{:pattern bit a i}` the same goal is unsat in 0.5s.
+
+**Fix:**
+
+* Check the definition first, then the annotation's universe, as before `69b90c37eb`. Both orders are sound. The definition's guard then carries the shared WF facts, in scope of the body.
+* This fixes all 5 bisected hacl files and 2 of the 3 AlgoStar ones (UnionFind.Impl, RodCutting.Extended).
+
+**Where:**
+
+* [Core.fst L3239–L3240](https://github.com/FStarLang/FStar/blob/eb8dc8e48d1bf86252db62e8a5ab8dc0ccc40078/src/typechecker/FStarC.TypeChecker.Core.fst#L3239-L3240)
+* [L3275–L3283](https://github.com/FStarLang/FStar/blob/eb8dc8e48d1bf86252db62e8a5ab8dc0ccc40078/src/typechecker/FStarC.TypeChecker.Core.fst#L3275-L3283)
+* doc [core_typechecking.md L378–L384](https://github.com/FStarLang/FStar/blob/eb8dc8e48d1bf86252db62e8a5ab8dc0ccc40078/doc/ref/core_typechecking.md#L378-L384)
+
+**Suggestion:** the guard cache can turn a hypothesis into a sibling conjunct depending on check order. The cache could prefer, or keep, the emission that is in scope of later goals. Alternatively, the cache hit could be skipped when the earlier emission was closed over binders the current context does not share.
+
+#### 7.2.5 `Pulse.Lib.PriorityQueue`: a fragile nonlinear WF goal ([`aa8f57b17d`](https://github.com/FStarLang/FStar/commit/aa8f57b17d99530d871701db405dcae17e54b8e3))
+
+This was not a checker bug.
+
+**Symptom:** after the merge of master `72e5af4097` (`d8e8d01d41`), `grandparent_up_after_swap_child` failed at [PriorityQueue.fst L646](https://github.com/FStarLang/FStar/blob/d8e8d01d41b0f3350a316cdc2f482b07ec76acf8/pulse/lib/pulse/lib/Pulse.Lib.PriorityQueue.fst#L646).
+
+**Diagnosis:**
+
+* The goal lists (`--query_stats`) under `d4dad4862b` and `d8e8d01d41` are identical.
+* Goal 10 is the well-formedness of `parent_idx (parent_idx child)`. It needs the nonlinear fact `(i-1)/2 < i`.
+* That goal used 1.05 of its 5 rlimit units before and timed out after. This is Z3 variance on an identical query.
+
+**Fix:** state that fact as the first conjunct of the `ensures`; see [L645](https://github.com/FStarLang/FStar/blob/aa8f57b17d99530d871701db405dcae17e54b8e3/pulse/lib/pulse/lib/Pulse.Lib.PriorityQueue.fst#L645). The file now needs at most 0.086 rlimit units.
+
+Refining `parent_idx`'s result type to `r:nat{r < i}` instead broke `sift_down` (L1113), so that change was not kept.
+
+#### 7.2.6 `synth_by_tactic` terms re-checked by Core: a tactic's SMT-discharged guards are no longer trusted ([`a27f2fdbaf`](https://github.com/FStarLang/FStar/commit/a27f2fdbaf71bd5be9a2be4f6e4e3c09b870d9fc))
+
+This is a deliberate design change in the PR, but it has a cost for proof-producing tactics. EverParse's qd unit tests T7, T15_body, T20 and T40 failed with 4 errors each. Their modules are generated from [`share/everparse/tests/qd/unit/unittests.rfc`](https://github.com/project-everest/everparse/blob/c9cffd0858d20e5ea90265644d0d30c25e347b5e/share/everparse/tests/qd/unit/unittests.rfc); the T7 error is at `extracted/T7.fst` L234–L236. Each error is at a `validate_dsum`/`jump_dsum` call whose argument is `_ by (LP.dep_maybe_enum_destr_t_tac ())`.
+
+**Bisect:** F* master `45697a089b` passes. `d4dad4862b` and later fail. The validator's VC has 2 goals on master and 20 on the PR.
+
+**Cause:**
+
+* The tactic ([LowParse.Spec.Tac.Sum L132–L150](https://github.com/project-everest/everparse/blob/c9cffd0858d20e5ea90265644d0d30c25e347b5e/lib/everparse/lowparse/LowParse.Spec.Tac.Sum.fst#L132-L150)) applies `dep_maybe_enum_destr_cons` once per enum case. It then closes the remaining goals with `T.compute (); T.smt ()`.
+* Each step's invariant `u1 : squash (Cons? l2 /\ e == rev l1 @ l2)` is unified with the previous step's index, `list_append_rev_cons l1 (hd l2) (tl l2)`. That term's type, `rev l1 @ (x::l2) == rev (x::l1) @ l2`, does not mention `e`.
+* On master, the tactic's own `compute; smt` justified each `squash G_k <: squash (Cons? l2 /\ e == …)` on the fully computed enum, and the result was trusted.
+* Since `a27f2fdbaf`, Core re-checks the produced term "like any other term" ([core_typechecking.md L214–L220](https://github.com/FStarLang/FStar/blob/aa8f57b17d99530d871701db405dcae17e54b8e3/doc/ref/core_typechecking.md#L214-L220)). It must prove `e == rev l1' @ l2'` for step k+1 by plain SMT, without computation.
+* The only hypotheses available are the `Cons?` WF facts and step 0's invariant. Steps 1 and 2 succeed through fuel 2; steps ≥3 and the final `Nil?` step fail.
+* The jumper fails the same way in isolation. In the full file it appeared to pass only because its guards hit the guard cache after the validator's errors.
+
+**Fix (EverParse, [`c9cffd0`](https://github.com/project-everest/everparse/commit/c9cffd0858d20e5ea90265644d0d30c25e347b5e)):**
+
+* A new lemma `list_append_rev_cons_inv e l1 l2 u1 : Lemma (e == rev (hd l2 :: l1) @ tl l2)` takes the current invariant ([LowParse.Spec.Enum.fst L914–L926](https://github.com/project-everest/everparse/blob/c9cffd0858d20e5ea90265644d0d30c25e347b5e/lib/everparse/lowparse/LowParse.Spec.Enum.fst#L914-L926)).
+* `maybe_enum_destr_cons` ([L935](https://github.com/project-everest/everparse/blob/c9cffd0858d20e5ea90265644d0d30c25e347b5e/lib/everparse/lowparse/LowParse.Spec.Enum.fst#L935)) and `dep_maybe_enum_destr_cons` ([L1073](https://github.com/project-everest/everparse/blob/c9cffd0858d20e5ea90265644d0d30c25e347b5e/lib/everparse/lowparse/LowParse.Spec.Enum.fst#L1073)) now index their continuation by it.
+* Each step's invariant is now the type of the previous one, so Core's check is inductive. All 20 goals of `t7_validator` pass at ≤0.18 rlimit units.
+
+**Question for the PR:** any tactic that discharges guards by computation (`T.compute (); T.smt ()`, `norm [delta]; trivial`, …) and then leaves the bare unification in the term will need the same treatment. Options are:
+
+* document this as a migration note;
+* let Core reuse a guard the tactic already proved by SMT;
+* have Core apply the tactic's normalization to such guards.
+
+### 7.3 Project merges
+
+| Project | Merge | Notes |
+|---|---|---|
+| hacl-pulse | [`f100561`](https://github.com/FStarLang/hacl-pulse/commit/f100561f725a55e1fdb985d1b60fe3e99fa3b4b3) | master was **rewritten** (same commits under new hashes, plus `--codegen C`), so every file conflicted. Took master's tree and re-applied 12 of the 13 round-1 commits. The NTT workaround `feeb7ba` was dropped because master rewrote `intt_layer_impl`. |
+| AlgoStar | [`8a412c9`](https://github.com/FStarLang/AlgoStar/commit/8a412c9801a9a38045c99059023cd2f254705bf6) | clean |
+| kuiper | [`c22e016`](https://github.com/FStarLang/kuiper/commit/c22e0165fc6427291d66c7b66495c67b6cd5aff1) | conflicts in sparse SPMM. main restructured it: Load/LoadDense/LoadSparse/StoreDense were removed. Resolved in favour of main, which **lost round-1 hardening**; it is restored in `d2de7ad`. |
+| pulse-verified-gc | [`382546f`](https://github.com/FStarLang/pulse-verified-gc/commit/382546f5dd5d4548b942acad03201953013ff93d) | clean |
+| everparse | [`4d7dda5`](https://github.com/project-everest/everparse/commit/4d7dda55c0162e6e6b5a74c8f6f6c4f473321191) | clean |
+| pal | — | no `olympus_phase2_core` changes; branch created at `58f168f7` |
+
+**hacl-pulse master is not clean on its own under Olympus.** It was built with F* master `45697a089b` and Olympus's Z3 5.3.0. hacl-pulse has no Z3 pin and no CI. It fails at:
+
+* `Spec.P256.Win{1,2,3}:83`
+* `Spec.Poly1305.Vec:258`
+* `Hacl.Chacha20.Vec512:619`
+* `Hacl.Salsa20.Vec512:642`
+* Error 173 in 6 files: F* master's `custard_c_closure_prologue` now takes one argument.
+
+Several of the hacl changes below therefore fix master as much as they fix the PR.
+
+### 7.4 Project changes in this round
+
+All are `fstar-regression-workaround` unless marked **`minimal`**.
+
+**hacl-pulse** ([compare](https://github.com/FStarLang/hacl-pulse/compare/f100561f725a55e1fdb985d1b60fe3e99fa3b4b3...385da8c6ebd5c830052b6608c78425715e9c473e)):
+
+| Commit | Change | Lines |
+|---|---|---|
+| [`8d69133`](https://github.com/FStarLang/hacl-pulse/commit/8d69133a53fc7a4032b8f8b30263a71f4bd4f351) | **`minimal`**: port `CPrologue` closure attributes to the 1-argument `custard_c_closure_prologue` (17 files) | e.g. [Hacl.Vec512.fst L41](https://github.com/FStarLang/hacl-pulse/blob/8d69133a53fc7a4032b8f8b30263a71f4bd4f351/lib/Hacl.Vec512.fst#L41), [Hacl.AES.NI.fst L86](https://github.com/FStarLang/hacl-pulse/blob/8d69133a53fc7a4032b8f8b30263a71f4bd4f351/code/aes/Hacl.AES.NI.fst#L86) |
+| [`9cda6da`](https://github.com/FStarLang/hacl-pulse/commit/9cda6da7252425879d405564a7a7ae131af67fcc) | P256.Win1/2/3: `e1_ok` also states `peq e1 (smul n g)` | [Spec.P256.Win1.fst L59](https://github.com/FStarLang/hacl-pulse/blob/9cda6da7252425879d405564a7a7ae131af67fcc/spec/Spec.P256.Win1.fst#L59), [Win2 L59](https://github.com/FStarLang/hacl-pulse/blob/9cda6da7252425879d405564a7a7ae131af67fcc/spec/Spec.P256.Win2.fst#L59), [Win3 L59](https://github.com/FStarLang/hacl-pulse/blob/9cda6da7252425879d405564a7a7ae131af67fcc/spec/Spec.P256.Win3.fst#L59) |
+| 〃 | Chacha20.Vec512: per-case `qa/qb_collect`; named `tb_post`; `small_mod` for the chunk counter | [L508–L516](https://github.com/FStarLang/hacl-pulse/blob/9cda6da7252425879d405564a7a7ae131af67fcc/code/chacha/Hacl.Chacha20.Vec512.fst#L508-L516), [L602–L623](https://github.com/FStarLang/hacl-pulse/blob/9cda6da7252425879d405564a7a7ae131af67fcc/code/chacha/Hacl.Chacha20.Vec512.fst#L602-L623), [L645–L666](https://github.com/FStarLang/hacl-pulse/blob/9cda6da7252425879d405564a7a7ae131af67fcc/code/chacha/Hacl.Chacha20.Vec512.fst#L645-L666), [L990](https://github.com/FStarLang/hacl-pulse/blob/9cda6da7252425879d405564a7a7ae131af67fcc/code/chacha/Hacl.Chacha20.Vec512.fst#L990) |
+| 〃 | Salsa20.Vec512: same as Chacha20.Vec512 | [L502–L510](https://github.com/FStarLang/hacl-pulse/blob/9cda6da7252425879d405564a7a7ae131af67fcc/code/salsa20/Hacl.Salsa20.Vec512.fst#L502-L510), [L596–L617](https://github.com/FStarLang/hacl-pulse/blob/9cda6da7252425879d405564a7a7ae131af67fcc/code/salsa20/Hacl.Salsa20.Vec512.fst#L596-L617), [L639–L660](https://github.com/FStarLang/hacl-pulse/blob/9cda6da7252425879d405564a7a7ae131af67fcc/code/salsa20/Hacl.Salsa20.Vec512.fst#L639-L660), [L984](https://github.com/FStarLang/hacl-pulse/blob/9cda6da7252425879d405564a7a7ae131af67fcc/code/salsa20/Hacl.Salsa20.Vec512.fst#L984) |
+| 〃 | Salsa20.Vec256: `ob_fits`; `chunk_step` without the quadratic `S8.v_extensional` patterns | [L593–L595](https://github.com/FStarLang/hacl-pulse/blob/9cda6da7252425879d405564a7a7ae131af67fcc/code/salsa20/Hacl.Salsa20.Vec256.fst#L593-L595), [L629–L634](https://github.com/FStarLang/hacl-pulse/blob/9cda6da7252425879d405564a7a7ae131af67fcc/code/salsa20/Hacl.Salsa20.Vec256.fst#L629-L634), [L678](https://github.com/FStarLang/hacl-pulse/blob/9cda6da7252425879d405564a7a7ae131af67fcc/code/salsa20/Hacl.Salsa20.Vec256.fst#L678) |
+| 〃 | Poly1305.Vec256: `fits16` for the block offset | [L1069–L1074](https://github.com/FStarLang/hacl-pulse/blob/9cda6da7252425879d405564a7a7ae131af67fcc/code/poly1305/Hacl.Poly1305.Vec256.fst#L1069-L1074), [L1185](https://github.com/FStarLang/hacl-pulse/blob/9cda6da7252425879d405564a7a7ae131af67fcc/code/poly1305/Hacl.Poly1305.Vec256.fst#L1185) |
+| 〃 | P256.Exp: `E4.idx_of`, as `Hacl.Impl.Exp4.estep` does | [L117](https://github.com/FStarLang/hacl-pulse/blob/9cda6da7252425879d405564a7a7ae131af67fcc/code/p256/Hacl.P256.Exp.fst#L117) |
+| 〃 | P256.Scalar: `sqr_pow2_step` | [L189–L196](https://github.com/FStarLang/hacl-pulse/blob/9cda6da7252425879d405564a7a7ae131af67fcc/code/p256/Hacl.P256.Scalar.fst#L189-L196), [L224–L226](https://github.com/FStarLang/hacl-pulse/blob/9cda6da7252425879d405564a7a7ae131af67fcc/code/p256/Hacl.P256.Scalar.fst#L224-L226) |
+| 〃 | explicit arithmetic steps | [Blake2.Streaming L150](https://github.com/FStarLang/hacl-pulse/blob/9cda6da7252425879d405564a7a7ae131af67fcc/code/hash/Hacl.Hash.Blake2.Streaming.fst#L150), [MLDSA.Sample4 L138–L140](https://github.com/FStarLang/hacl-pulse/blob/9cda6da7252425879d405564a7a7ae131af67fcc/code/mldsa/Hacl.Impl.MLDSA.Sample4.fst#L138-L140), [MLKEM.Gen L482](https://github.com/FStarLang/hacl-pulse/blob/9cda6da7252425879d405564a7a7ae131af67fcc/code/mlkem/Hacl.Impl.MLKEM.Gen.fst#L482), [RSAPSS.Fermat L136–L137](https://github.com/FStarLang/hacl-pulse/blob/9cda6da7252425879d405564a7a7ae131af67fcc/spec/Spec.RSAPSS.Fermat.fst#L136-L137), [Bignum4.Window L126–L132](https://github.com/FStarLang/hacl-pulse/blob/9cda6da7252425879d405564a7a7ae131af67fcc/spec/Spec.Bignum4.Window.fst#L126-L132) |
+| 〃 | `#restart-solver` | [MLKEM.Encode.Lemmas L204–L205](https://github.com/FStarLang/hacl-pulse/blob/9cda6da7252425879d405564a7a7ae131af67fcc/spec/Spec.MLKEM.Encode.Lemmas.fst#L204-L205), [K256.ECDSA.Correctness L199–L200](https://github.com/FStarLang/hacl-pulse/blob/9cda6da7252425879d405564a7a7ae131af67fcc/spec/Spec.K256.ECDSA.Correctness.fst#L199-L200) |
+| [`a1ce905`](https://github.com/FStarLang/hacl-pulse/commit/a1ce905862628825894611cb3e3d71a7e0a5b17b) | Bignum52.Window `eval_win2`: same steps as Bignum4.Window | [L127–L133](https://github.com/FStarLang/hacl-pulse/blob/a1ce905862628825894611cb3e3d71a7e0a5b17b/spec/Spec.Bignum52.Window.fst#L127-L133) |
+| 〃 | Poly1305.Vec `one_step`: expose the `block16` slice; `four_steps`: one assert per step | [L223–L224](https://github.com/FStarLang/hacl-pulse/blob/a1ce905862628825894611cb3e3d71a7e0a5b17b/spec/Spec.Poly1305.Vec.fst#L223-L224), [L253–L262](https://github.com/FStarLang/hacl-pulse/blob/a1ce905862628825894611cb3e3d71a7e0a5b17b/spec/Spec.Poly1305.Vec.fst#L253-L262) |
+| 〃 | MLDSA.Encode.Lemmas: `nat_times_nat_is_nat` for `p.l * (32*e) >= 0` | [L332–L333](https://github.com/FStarLang/hacl-pulse/blob/a1ce905862628825894611cb3e3d71a7e0a5b17b/spec/Spec.MLDSA.Encode.Lemmas.fst#L332-L333) |
+| 〃 | Ed25519.Group `curve_eq_gen`: explicit distributivity. It still failed after §7.2.4, although the revert build passed it. | [L547–L548](https://github.com/FStarLang/hacl-pulse/blob/a1ce905862628825894611cb3e3d71a7e0a5b17b/spec/Spec.Ed25519.Group.fst#L547-L548) |
+| [`385da8c`](https://github.com/FStarLang/hacl-pulse/commit/385da8c6ebd5c830052b6608c78425715e9c473e) | MLDSA.Encode `pack_poly`: assert the unmasked coefficient's value before the masked one. The coefficient `c` is bound by an `if` on `signed`. This is new master code, and the assert timed out at rlimit 200. | [L186](https://github.com/FStarLang/hacl-pulse/blob/385da8c6ebd5c830052b6608c78425715e9c473e/code/mldsa/Hacl.Impl.MLDSA.Encode.fst#L186) |
+
+**AlgoStar** ([compare](https://github.com/FStarLang/AlgoStar/compare/8a412c9801a9a38045c99059023cd2f254705bf6...910f8785b9a8704790f0cb1f01ca2b3a8593d3b0)); paths are under `autoclrs/`:
+
+| Commit | Change | Lines |
+|---|---|---|
+| [`af8ccc9`](https://github.com/FStarLang/AlgoStar/commit/af8ccc9bd1218cfdecb818b7f59b79add356677e) | Heap.ImplTest: state `forall i<3. i=0 \/ i=1 \/ i=2` first | [ch06 L372](https://github.com/FStarLang/AlgoStar/blob/af8ccc9bd1218cfdecb818b7f59b79add356677e/autoclrs/ch06-heapsort/CLRS.Ch06.Heap.ImplTest.fst#L372) |
+| 〃 | RadixSort.Spec: `assert (d == d0 + 1)` | [ch08 L620](https://github.com/FStarLang/AlgoStar/blob/af8ccc9bd1218cfdecb818b7f59b79add356677e/autoclrs/ch08-linear-sorting/CLRS.Ch08.RadixSort.Spec.fst#L620) |
+| 〃 | ModExpLR.Impl: `mod2_cases` for the exponent bit | [ch31 L195–L196](https://github.com/FStarLang/AlgoStar/blob/af8ccc9bd1218cfdecb818b7f59b79add356677e/autoclrs/ch31-number-theory/CLRS.Ch31.ModExpLR.Impl.fst#L195-L196), [L289](https://github.com/FStarLang/AlgoStar/blob/af8ccc9bd1218cfdecb818b7f59b79add356677e/autoclrs/ch31-number-theory/CLRS.Ch31.ModExpLR.Impl.fst#L289) |
+| 〃 | RabinKarp: two asserts and `distributivity_add_left` | [ch32 L362](https://github.com/FStarLang/AlgoStar/blob/af8ccc9bd1218cfdecb818b7f59b79add356677e/autoclrs/ch32-string-matching/CLRS.Ch32.RabinKarp.fst#L362), [L372–L373](https://github.com/FStarLang/AlgoStar/blob/af8ccc9bd1218cfdecb818b7f59b79add356677e/autoclrs/ch32-string-matching/CLRS.Ch32.RabinKarp.fst#L372-L373) |
+| [`2c6186f`](https://github.com/FStarLang/AlgoStar/commit/2c6186f6905b077bb1721a6a8a7f39dce65a654d) | Huffman.Impl: assert the tick-count invariant conjunct before the loop body exits | [ch16 L528](https://github.com/FStarLang/AlgoStar/blob/2c6186f6905b077bb1721a6a8a7f39dce65a654d/autoclrs/ch16-greedy/CLRS.Ch16.Huffman.Impl.fst#L528), [L532](https://github.com/FStarLang/AlgoStar/blob/2c6186f6905b077bb1721a6a8a7f39dce65a654d/autoclrs/ch16-greedy/CLRS.Ch16.Huffman.Impl.fst#L532) |
+| [`910f878`](https://github.com/FStarLang/AlgoStar/commit/910f8785b9a8704790f0cb1f01ca2b3a8593d3b0) | RabinKarp.Spec `hash_slice_lemma`: name the last character `c` and the inner hash `h`, and assert both unfolded hashes. The SMT query is byte-identical under `d4dad4862b` and the final binary. The old binary also fails it with `--z3refresh`, so this is Z3 session sensitivity. | [ch32 L177–L178, L181–L182, L184–L186](https://github.com/FStarLang/AlgoStar/blob/910f8785b9a8704790f0cb1f01ca2b3a8593d3b0/autoclrs/ch32-string-matching/CLRS.Ch32.RabinKarp.Spec.fst#L177-L186) |
+
+The 5 AlgoStar chapters fixed by `af8ccc9` and by the F* fixes in §7.2.2 and §7.2.3 all passed with F* master.
+
+**kuiper** — [`d2de7ad`](https://github.com/FStarLang/kuiper/commit/d2de7ad97098d021d963908342fddfb3717dd6c7). It restores the round-1 hardening lost in the merge and ports it to main's restructured files:
+
+* the `chunk_*` bound lemmas: [Sparse.Array.PtsTo L17–L43](https://github.com/FStarLang/kuiper/blob/d2de7ad97098d021d963908342fddfb3717dd6c7/src/lib/sparse/Kuiper.Sparse.Array.PtsTo.fst#L17-L43), [SPMM.Defs L158–L162](https://github.com/FStarLang/kuiper/blob/d2de7ad97098d021d963908342fddfb3717dd6c7/src/lib/sparse/Kuiper.Sparse.SPMM.Defs.fst#L158-L162);
+* the SMTPat bound lemmas: [SPMM.Barrier.fsti L24–L59](https://github.com/FStarLang/kuiper/blob/d2de7ad97098d021d963908342fddfb3717dd6c7/src/lib/sparse/Kuiper.Sparse.SPMM.Barrier.fsti#L24-L59);
+* in the new `Sparse.LoadStore`: `divides_add_le`, `load_array_vec_chunk_end` and `load_array_vec_aligned` ([L16–L42](https://github.com/FStarLang/kuiper/blob/d2de7ad97098d021d963908342fddfb3717dd6c7/src/lib/sparse/Kuiper.Sparse.LoadStore.fst#L16-L42), [L53–L65](https://github.com/FStarLang/kuiper/blob/d2de7ad97098d021d963908342fddfb3717dd6c7/src/lib/sparse/Kuiper.Sparse.LoadStore.fst#L53-L65));
+* in `Kernel.OnlineSoftmax`: `inv_of_pos_pat` ([L165–L172](https://github.com/FStarLang/kuiper/blob/d2de7ad97098d021d963908342fddfb3717dd6c7/src/lib/kernel/Kuiper.Kernel.OnlineSoftmax.fst#L165-L172), [L276–L283](https://github.com/FStarLang/kuiper/blob/d2de7ad97098d021d963908342fddfb3717dd6c7/src/lib/kernel/Kuiper.Kernel.OnlineSoftmax.fst#L276-L283));
+* `Sparse.SPMM`: main's version with the hardening ported. The loop invariant uses `lslice` instead of `Seq.slice … (!idx * K)`, whose length subtyping timed out. See [L1394–L1407](https://github.com/FStarLang/kuiper/blob/d2de7ad97098d021d963908342fddfb3717dd6c7/src/lib/sparse/Kuiper.Sparse.SPMM.fst#L1394-L1407).
+
+The typeclass failure in `GEMMGPU.Type` needed no kuiper change; §7.2.1 fixes it.
+
+**pulse-verified-gc** — [`3ee7803`](https://github.com/FStarLang/pulse-verified-gc/commit/3ee7803862fec49d76f4c70e24a9cdda991308ab) (**`minimal`**, a main bug, not a PR issue):
+
+* main's `b63dde3` dropped the `val`s of `minor_heap_size_sz` and `fwd_arr_size_sz` from `GC.Gen.Impl.MinorHeap.fsti`.
+* KaRaMeL therefore no longer declared them in `GC_Gen_Impl.h`, and the hand-written `generational/snapshot/krmlinit.c` failed to compile.
+* The `val`s are restored at [L44–L47 and L122–L125](https://github.com/FStarLang/pulse-verified-gc/blob/3ee7803862fec49d76f4c70e24a9cdda991308ab/generational/impl/GC.Gen.Impl.MinorHeap.fsti#L44-L47).
+
+**everparse** ([compare](https://github.com/project-everest/everparse/compare/4d7dda55c0162e6e6b5a74c8f6f6c4f473321191...c44e47f9904aa2d30d665d56dcb1c4cc3409e9fb)):
+
+* [`c9cffd0`](https://github.com/project-everest/everparse/commit/c9cffd0858d20e5ea90265644d0d30c25e347b5e) makes LowParse's enum destructors re-checkable by Core; see §7.2.6.
+* [`c44e47f`](https://github.com/project-everest/everparse/commit/c44e47f9904aa2d30d665d56dcb1c4cc3409e9fb) merges the open everparse nightly PR project-everest/everparse#346 ("Update hashes and snapshots", branch `_dzomo_pr_39699891579`). That PR adapts EverParse to the same F* `master` changes that this round merged; see §7.6. It merged cleanly.
+* [`707caaf`](https://github.com/project-everest/everparse/commit/707caaf4ad89d5071a478a8ee34d44737bfc4cdf) handles unrefinement. The new master code meets unrefinement (FStarLang/FStar#4586), which is on by default on the PR. An equality between refined byte sequences, or the implicit type of an intro lemma, is now inferred at the unrefined type. The commit states the intended types:
+  * [CBOR.Spec.Raw.Valid.fsti L53, L233](https://github.com/project-everest/everparse/blob/707caaf4ad89d5071a478a8ee34d44737bfc4cdf/lib/everparse/cbor/spec/raw/CBOR.Spec.Raw.Valid.fsti#L53)
+  * [CBOR.Spec.Raw.Valid.fst L60, L288](https://github.com/project-everest/everparse/blob/707caaf4ad89d5071a478a8ee34d44737bfc4cdf/lib/everparse/cbor/spec/raw/CBOR.Spec.Raw.Valid.fst#L60)
+  * [CBOR.Spec.Raw.Nondet.fst L37](https://github.com/project-everest/everparse/blob/707caaf4ad89d5071a478a8ee34d44737bfc4cdf/lib/everparse/cbor/spec/raw/CBOR.Spec.Raw.Nondet.fst#L37)
+  * [CBOR.Pulse.Raw.EverParse.Nondet.Gen.fst L75](https://github.com/project-everest/everparse/blob/707caaf4ad89d5071a478a8ee34d44737bfc4cdf/lib/everparse/cbor/pulse/raw/everparse/CBOR.Pulse.Raw.EverParse.Nondet.Gen.fst#L75)
+  * [LowParse.Spec.BitVector.fst L174](https://github.com/project-everest/everparse/blob/707caaf4ad89d5071a478a8ee34d44737bfc4cdf/lib/everparse/lowparse/LowParse.Spec.BitVector.fst#L174)
+  * [ASN1.Spec.Automata.fst L307](https://github.com/project-everest/everparse/blob/707caaf4ad89d5071a478a8ee34d44737bfc4cdf/src/ASN1/ASN1.Spec.Automata.fst#L307)
+
+### 7.5 Z3 session sensitivity (most of the hacl workarounds)
+
+Most of the hacl timeouts in this round are goals that are trivial in isolation but exhaust their rlimit in the F* session. Examples are `8*i >= 0`, `order - s < order` and `SZ.fits (16 * SZ.v g)`.
+
+* The failing `Spec.MLKEM.Encode.Lemmas` query, replayed standalone, is unsat at about 0.25 rlimit units. In the session it exhausts rlimit 5.
+* A `Salsa20.Vec256` query replayed standalone is unsat in 0.08s.
+* In two cases the cause is quadratic quantifier instantiation from SMTPat lemmas in scope: `Hacl.Secret.UInt8.v_extensional` and `SizeT.fits_lte`.
+* The PR's only `src/smtencoding` change against master is `ErrorReporting.fst`, so there is no single encoding switch to flip.
+* `--z3refresh` and `#restart-solver` helped only sometimes. The workarounds therefore give the facts directly.
+
+### 7.6 Toolchain changes from F* master
+
+Two F* `master` changes merged in this round need toolchain changes outside the projects' proofs.
+
+**GCC 15 for Cherry.**
+
+* [`58b952f216`](https://github.com/FStarLang/FStar/commit/58b952f21644fe5e3b4b08e078437ccd5be19ad8) ("Cherry: tail groups via goto; require GCC 15 for musttail") makes [`ulib/c/cherry.h` L72](https://github.com/FStarLang/FStar/blob/aa8f57b17d99530d871701db405dcae17e54b8e3/ulib/c/cherry.h#L72) `#error` on any other compiler. As a result, FStar-ci's Cherry tests fail with Ubuntu 24.04's GCC 13/14.
+* F*'s CI sets `CHERRY_CC=gcc-15 CHERRY_CXX=g++-15`, and `mk/test.mk` defaults `CHERRY_CC ?= $(CC)`.
+* OlympusMons changes:
+  * `scripts/build/FStar-ci.sh` exports these variables when `gcc-15`/`g++-15` are on `PATH` and the variables are unset.
+  * `scripts/install-system-deps.sh` installs gcc-15/g++-15 from `ppa:ubuntu-toolchain-r/test`.
+  * `README.md` lists GCC 15 as a prerequisite.
+
+**F* writes JSON `.krml` files; Custard emits KaRaMeL `Private`.** Both
+changes are in F* `master`, not in the PR. EverParse `master` pins F*
+`6db6b296ad`, which has neither.
+
+* [`69d0297e10`](https://github.com/FStarLang/FStar/commit/69d0297e1017879754bdf178f9f2c574f4f559eb) ("Custard: write .krml files as JSON instead of OCaml Marshal") made every EverParse krml step fail with `Fatal error: exception Failure("input_value: bad object")`. There were 35 occurrences, in 3D, CBOR, COSE, CDDL and the LowParse Pulse tests. EverParse's KaRaMeL, [`43709b90`](https://github.com/FStarLang/karamel/commit/43709b90c6e5a6aed13608d720cc38488abc82c6), selects the JSON reader by the `.json` extension.
+* [`064c51c83c`](https://github.com/FStarLang/FStar/commit/064c51c83c804507e0057b87fc58aae0f63e3392) ("Custard: emit karamel Private for private / KrmlPrivate declarations") restores the legacy behaviour. As a result:
+  * the COSE C and Rust snapshots lose the public `*_ugly` typedefs and the `*_left`/`*_right` conversions, which `FStar.Tactics.PrettifyType` tags `KrmlPrivate`; `COSE_Format_Inl`/`Inr` become `FStar_Pervasives_Inl`/`Inr`, and Rust's `evercddl_int_ugly_tags` becomes `either__uint64_t_uint64_t_tags`;
+  * the 3D doc snapshot headers shrink similarly;
+  * 3D's Low* `batch-cleanup-test` now also leaves `internal/ELF.h`, because `ELFTestGen` calls ELF's private `ElfValidateCoreElf` across translation units.
+* I first patched these locally: a KaRaMeL with upstream's detect-JSON-by-content commits cherry-picked, and regenerated COSE snapshots. Then I found the EverParse nightly's open PR project-everest/everparse#346, which handles all of them. It moves EverParse's F* to `023bbb4bd6` (an ancestor of this PR's head), renames the generated files to `Custard.json`/`*.json` so the existing KaRaMeL pin works, expects `internal/ELF.h`, and regenerates the snapshots. I merged that PR instead and dropped my local changes.
+* everparse `master` [`d09484dea`](https://github.com/project-everest/everparse/commit/d09484dea62824bf527dbdfcc1daa7e3f2b3accc) also removed `everparse-3d.exe`'s `KRML_EXE` lookup. The new `src/3d/tests` (hash checking) and `api_option_test.py` call it without `--karamel`, so it looks for `opt/karamel/out/bin/krml`, where EverParse's CI builds KaRaMeL. `scripts/build/everparse.sh` now symlinks `opt/karamel` to the KaRaMeL checkout that Olympus builds.
+
+**GNU as for GCC 15 (local only).** The GCC 15 I used locally comes from the
+`gcc:15` Docker image (Debian). It emits `.base64` directives, which
+Ubuntu 24.04's binutils 2.42 cannot assemble, so I used that image's `as`
+2.44 as well. A distribution GCC 15 is configured against the system
+binutils and does not have this problem.
+
+### 7.7 Process notes
+
+* `make CLEAN=1 NOCHECKOUT=1` is **not** a clean build. The `git clean -xffd` that `CLEAN` implies runs in `checkout.sh`, which `NOCHECKOUT` skips. One such run reused stale `.checked` files and test outputs and reported spurious failures. The final build below used `make -k -j128 CLEAN=1`.
+* Pins may name local, unpushed commits: `checkout.sh` checks with `git cat-file -e` before fetching.

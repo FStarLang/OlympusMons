@@ -25,6 +25,9 @@ if [ "$(cat "$kd/out/.olympus-rev" 2> /dev/null)" != "$krml_rev" ]; then
 fi
 export KRML_HOME="$kd"
 export KRML_EXE="$kd/out/bin/krml"
+# Tools and tests that are not passed --karamel (e.g. src/3d/tests) look
+# for krml at opt/karamel/out/bin/krml, where EverParse's CI builds it.
+ln -sfn "$kd" opt/karamel
 
 export EVERPARSE_USE_OPAMROOT=1
 export EVERPARSE_USE_FSTAR_EXE=1

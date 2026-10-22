@@ -54,7 +54,8 @@ of another Z3 makes the build fail rather than silently use another Z3.
 
 Prerequisites: [opam](https://opam.ocaml.org/), a C toolchain (with 32-bit
 support, for EverParse's tests), clang/LLVM 20 and clang-format 20 (for pal),
-Rust (for pal and EverParse), .NET 10 (for F*'s tests), and the GitHub CLI
+Rust (for pal and EverParse), .NET 10 and GCC 15 as `gcc-15`/`g++-15` (for
+F*'s tests; set `CHERRY_CC`/`CHERRY_CXX` to use another GCC 15), and the GitHub CLI
 `gh` (logged in) to clone the private repositories. On Ubuntu 24.04,
 `sudo scripts/install-system-deps.sh` installs all of them but Rust, which is
 best installed with [rustup](https://rustup.rs).

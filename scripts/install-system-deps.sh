@@ -45,3 +45,10 @@ apt-get install -y -q --no-install-recommends \
   clang-20 clang-format-20 clang-tools-20 libclang-20-dev libclang-cpp20-dev \
   llvm-20-dev
 ln -sf /usr/bin/clang-format-20 /usr/local/bin/clang-format
+
+# F*'s Cherry tests need GCC 15 (as gcc-15 and g++-15, which
+# scripts/build/FStar-ci.sh passes to them); install it from the toolchain
+# PPA, as F*'s setup-fstar-deps action does. It is not the default compiler.
+add-apt-repository -y ppa:ubuntu-toolchain-r/test
+apt-get update -q
+apt-get install -y -q --no-install-recommends gcc-15 g++-15

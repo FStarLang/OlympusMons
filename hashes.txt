@@ -8,10 +8,10 @@
 # that EverParse uses the krml of its own KaRaMeL pin; see README.md).
 #
 # Format: <project>:<commit>      ('#' starts a comment)
-FStar:b7cd6d4daa19eae8b34f754e961f47abc675db62
-everparse:071a7d4551c299d1a8de2b51452d67fd0722aaca
-pal:51b8c40fe35403c1d0bb1284aa3b0e3c0c10f4bd
-kuiper:8487b55cfeba4d34ff7e9fa117be58266353e239
-pulse-verified-gc:589bf2e88ed03bc489c0b638303d90730fdcb4a7
-AlgoStar:018870fa826ccda4ef945eb6763e789c8684a9d5
-hacl-pulse:49c09320c36cc80638220ee611debf481312df5c
+FStar:055a40ba30c62f9c6abaa74c56d791f75eb5e206
+everparse:c44e47f9904aa2d30d665d56dcb1c4cc3409e9fb
+pal:58f168f7f1e7e2fff50e348d415276a4edf168d6
+kuiper:d2de7ad97098d021d963908342fddfb3717dd6c7
+pulse-verified-gc:3ee7803862fec49d76f4c70e24a9cdda991308ab
+AlgoStar:910f8785b9a8704790f0cb1f01ca2b3a8593d3b0
+hacl-pulse:385da8c6ebd5c830052b6608c78425715e9c473e
