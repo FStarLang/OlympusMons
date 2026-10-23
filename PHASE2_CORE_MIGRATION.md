@@ -33,7 +33,7 @@ Short version:
 
 | Project | Before (`main`) | Round 1 | Round 2 (current) |
 |---|---|---|---|
-| FStar | `285d2038e2` (master) | [`b7cd6d4daa`](https://github.com/FStarLang/FStar/commit/b7cd6d4daa19eae8b34f754e961f47abc675db62) | [`055a40ba30`](https://github.com/FStarLang/FStar/commit/055a40ba30c62f9c6abaa74c56d791f75eb5e206) (`_phase2_core`; contains PR head `a314b0967a` and master `18c5d4a409`) |
+| FStar | `285d2038e2` (master) | [`b7cd6d4daa`](https://github.com/FStarLang/FStar/commit/b7cd6d4daa19eae8b34f754e961f47abc675db62) | [`6a1679b96e`](https://github.com/FStarLang/FStar/commit/6a1679b96eaecd89639c69dcaf5121ed0b60d6e0) (`_phase2_core`; round 2 `055a40ba30` + master `85d8ab69e0`, see §7.8) |
 | everparse | `56efa51529` | [`071a7d4551`](https://github.com/project-everest/everparse/commit/071a7d4551c299d1a8de2b51452d67fd0722aaca) | [`c44e47f990`](https://github.com/project-everest/everparse/commit/c44e47f9904aa2d30d665d56dcb1c4cc3409e9fb) |
 | pal | `51b8c40fe3` | `51b8c40fe3` (unchanged) | [`58f168f7f1`](https://github.com/FStarLang/pal/commit/58f168f7f1e7e2fff50e348d415276a4edf168d6) (master, unchanged) |
 | kuiper | `b5477e22c7` | [`8487b55cfe`](https://github.com/FStarLang/kuiper/commit/8487b55cfeba4d34ff7e9fa117be58266353e239) | [`d2de7ad970`](https://github.com/FStarLang/kuiper/commit/d2de7ad97098d021d963908342fddfb3717dd6c7) |
@@ -52,18 +52,18 @@ trailer:
 
 ### 1.2 Final clean build (`make -k -j128 CLEAN=1`)
 
-| Target | Round 1 | Round 2 (current) | Result |
-|---|---|---|---|
-| FStar | 10m51s | 15m15s | ✅ |
-| FStar-ci | 52m | 1h08m53s | ✅ |
-| everparse | 1h35m | 1h55m36s | ✅ |
-| pal | 25m | 38m44s | ✅ |
-| kuiper | 1h07m | 1h28m20s | ✅ |
-| pulse-verified-gc | 52m | 1h13m12s | ✅ |
-| AlgoStar | 17m | 29m00s | ✅ |
-| hacl-pulse | 1h10m | 1h36m36s | ✅ |
+| Target | Round 1 | Round 2 | Round 3 (current, §7.8) | Result |
+|---|---|---|---|---|
+| FStar | 10m51s | 15m15s | 14m39s | ✅ |
+| FStar-ci | 52m | 1h08m53s | 1h16m00s | ✅ |
+| everparse | 1h35m | 1h55m36s | 2h18m53s | ✅ |
+| pal | 25m | 38m44s | 47m35s | ✅ |
+| kuiper | 1h07m | 1h28m20s | 1h48m26s | ✅ |
+| pulse-verified-gc | 52m | 1h13m12s | 1h20m58s | ✅ |
+| AlgoStar | 17m | 29m00s | 40m23s | ✅ |
+| hacl-pulse | 1h10m | 1h36m36s | 1h55m57s | ✅ |
 
-Round-2 times are longer. The projects' `master`/`main` grew (e.g. kuiper's
+Round-2 and round-3 times are longer. The projects' `master`/`main` grew (e.g. kuiper's
 new TensorCore2D kernels, EverParse's new 3D hash tests), and the machine was
 shared with other jobs; the times were not investigated further.
 
@@ -830,3 +830,13 @@ binutils and does not have this problem.
 
 * `make CLEAN=1 NOCHECKOUT=1` is **not** a clean build. The `git clean -xffd` that `CLEAN` implies runs in `checkout.sh`, which `NOCHECKOUT` skips. One such run reused stale `.checked` files and test outputs and reported spurious failures. The final build below used `make -k -j128 CLEAN=1`.
 * Pins may name local, unpushed commits: `checkout.sh` checks with `git cat-file -e` before fetching.
+
+### 7.8 Round 3: F* `master` `85d8ab69e0` merged
+
+[`6a1679b96e`](https://github.com/FStarLang/FStar/commit/6a1679b96eaecd89639c69dcaf5121ed0b60d6e0)
+merges F* `master` [`85d8ab69e0`](https://github.com/FStarLang/FStar/commit/85d8ab69e001bd0894a8765114c2a29360ea8111) into `_phase2_core`
+([compare](https://github.com/FStarLang/FStar/compare/055a40ba30c62f9c6abaa74c56d791f75eb5e206...6a1679b96eaecd89639c69dcaf5121ed0b60d6e0)).
+The PR had no new commits since round 2. Master's 18 new commits are Cherry and Custard backend work:
+FStarLang/FStar#4759 (C precedence), FStarLang/FStar#4765, FStarLang/FStar#4766, FStarLang/FStar#4767 and FStarLang/FStar#4769. The merge was clean. The full clean
+build passes with every project at its round-2 `olympus_phase2_core` commit,
+unchanged; only the F* pin in `hashes.txt` moved.
