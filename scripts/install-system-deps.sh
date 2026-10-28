@@ -35,6 +35,12 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update -q
 apt-get install -y -q --no-install-recommends "${pkgs[@]}"
 
+# F*'s Cherry C backend needs GCC 15 (as gcc-15, beside the system GCC),
+# from the toolchain PPA, as in F*'s CI.
+add-apt-repository -y ppa:ubuntu-toolchain-r/test
+apt-get update -q
+apt-get install -y -q --no-install-recommends gcc-15 g++-15
+
 # pal needs clang/LLVM 20, and checks its formatting with clang-format 20.
 # Install them from apt.llvm.org, as its CI and F*'s check-friends.yml do.
 tmp=$(mktemp -d)

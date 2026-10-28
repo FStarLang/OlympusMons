@@ -15,16 +15,12 @@ everparse:<commit>
 one `project:commit` per line (`#` starts a comment). **Every project builds
 at its recorded commit, against the F* (with its Pulse and KaRaMeL) at the
 recorded F* commit.** The projects' own pins of F*, KaRaMeL or Pulse
-(submodules, nightly releases, hashes files, ...) are ignored, with one
-exception: EverParse's code generation needs `krml` features that are only on
-a KaRaMeL branch, not in F*'s KaRaMeL submodule, so EverParse uses the `krml`
-of the KaRaMeL commit pinned in its own `opt/hashes.Makefile` (still with the
-recorded F*).
+(submodules, nightly releases, hashes files, ...) are ignored.
 
 | project | repository | what is built |
 |---|---|---|
 | FStar | [FStarLang/FStar](https://github.com/FStarLang/FStar) | stage 3 and a binary package; its CI target `make ci` |
-| everparse | [project-everest/everparse](https://github.com/project-everest/everparse) | the targets of its Linux CI (`ci.yml`, `cbor.yml`), with the `krml` of its own KaRaMeL pin (see above) |
+| everparse | [project-everest/everparse](https://github.com/project-everest/everparse) | the targets of its Linux CI (`ci.yml`, `cbor.yml`) |
 | pal | [FStarLang/pal](https://github.com/FStarLang/pal) | `make` and `make test`, as in its CI |
 | kuiper | [FStarLang/kuiper](https://github.com/FStarLang/kuiper) | `make verify` only: its extraction needs its own patched F* and KaRaMeL |
 | pulse-verified-gc | [FStarLang/pulse-verified-gc](https://github.com/FStarLang/pulse-verified-gc) | the steps of its CI (`verify.yml`) |
@@ -55,7 +51,8 @@ of another Z3 makes the build fail rather than silently use another Z3.
 ## Building
 
 Prerequisites: [opam](https://opam.ocaml.org/), a C toolchain (with 32-bit
-support, for EverParse's tests), clang/LLVM 20 and clang-format 20 (for pal),
+support, for EverParse's tests), GCC 15 as `gcc-15`/`g++-15` (for F*'s
+Cherry tests), clang/LLVM 20 and clang-format 20 (for pal),
 Rust (for pal and EverParse), .NET 10 (for F*'s tests), and the GitHub CLI
 `gh` (logged in) to clone the private repositories. On Ubuntu 24.04,
 `sudo scripts/install-system-deps.sh` installs all of them but Rust, which is

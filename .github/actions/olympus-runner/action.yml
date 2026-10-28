@@ -25,7 +25,7 @@ runs:
           export PATH="$HOME/.cargo/bin:$PATH"
         fi
         missing=
-        for c in opam gh git make gcc clang++ llvm-config-20 clang-format \
+        for c in opam gh git make gcc gcc-15 g++-15 clang++ llvm-config-20 clang-format \
                  cargo rustfmt dotnet python3 cmake jq unzip /usr/bin/time; do
           command -v "$c" > /dev/null || missing="$missing $c"
         done

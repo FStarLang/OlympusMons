@@ -61,8 +61,6 @@ repo_of () {
     pulse-verified-gc) echo FStarLang/pulse-verified-gc ;;
     AlgoStar)          echo FStarLang/AlgoStar ;;
     hacl-pulse)        echo FStarLang/hacl-pulse ;;
-    # Not a project: the KaRaMeL that EverParse pins (see build/everparse.sh).
-    everparse-karamel) echo FStarLang/karamel ;;
     *) echo "unknown project: $1" >&2; return 1 ;;
   esac
 }
@@ -203,6 +201,9 @@ base_env () {
   # Its version (e.g. 5.3.0), for the projects that pin a Z3 version.
   OLYMPUS_Z3_VERSION=$(z3 --version | awk '{ print $3 }')
   export OLYMPUS_Z3_VERSION
+  # F*'s Cherry C backend needs GCC 15 for guaranteed tail calls, which is
+  # not the system compiler (see F*'s .github/actions/setup-fstar-deps).
+  export CHERRY_CC=gcc-15 CHERRY_CXX=g++-15
   # Builds must succeed without proof recovery or other leniency.
   unset OTHERFLAGS FSTAR_EXE FSTAR_HOME FSTAR_ROOT KRML_EXE KRML_HOME PULSE_ROOT
   # A GitHub token in the environment (e.g. in CI) is only for checkout.sh.
