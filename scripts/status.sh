@@ -16,6 +16,7 @@ icon_of () {
     ok)      echo ':white_check_mark:' ;;
     TIMEOUT) echo ':hourglass:' ;;
     FAILED)  echo ':x:' ;;
+    CONFLICT) echo ':twisted_rightwards_arrows:' ;;
     *)       echo ':heavy_minus_sign:' ;;
   esac
 }

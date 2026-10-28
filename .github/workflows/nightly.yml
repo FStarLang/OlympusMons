@@ -1,6 +1,7 @@
 # The nightly upgrade (see "The nightly" in README.md): advance F* to the
-# tip of its master and every other project to the tip of its `olympus`
-# branch, build everything from scratch, and have Copilot repair whatever
+# tip of its master and every other project to the tip of its default
+# branch, with its `olympus` branch rebased on top, build everything from
+# scratch, and have Copilot repair whatever
 # stopped building. Once every project builds, record the commits in
 # hashes.txt and push.
 #
@@ -85,9 +86,6 @@ jobs:
         with:
           jobs: all
 
-      - name: Use the candidate commits
-        run: echo "OLYMPUS_HASHES=$OLYMPUS_WORK/candidate-hashes.txt" >> "$GITHUB_ENV"
-
       - name: Forget the results of the last run
         run: |
           rm -f "$OLYMPUS_WORK"/status/* "$OLYMPUS_WORK"/logs/*.diagnostics.log
@@ -104,11 +102,19 @@ jobs:
           FIX: ${{ github.event_name != 'workflow_dispatch' || inputs.fix }}
         run: scripts/nightly/preflight.sh
 
+      - name: Check that every repository can be read
+        run: scripts/ci/preflight.sh
+
+      # From hashes.txt: the candidate commits do not exist until this step
+      # has written them, so OLYMPUS_HASHES only points at them after it.
       - name: Work out what to try
         id: advance
         env:
           FSTAR_REV: ${{ inputs.fstar_rev }}
-        run: scripts/nightly/advance.sh "$OLYMPUS_HASHES" | tee "$RUNNER_TEMP/advance.txt"
+        run: scripts/nightly/advance.sh "$OLYMPUS_WORK/candidate-hashes.txt" | tee "$RUNNER_TEMP/advance.txt"
+
+      - name: Use the candidate commits
+        run: echo "OLYMPUS_HASHES=$OLYMPUS_WORK/candidate-hashes.txt" >> "$GITHUB_ENV"
 
       - name: Decide whether there is anything to do
         id: go
@@ -136,10 +142,6 @@ jobs:
           name: candidate-hashes
           path: ${{ env.OLYMPUS_HASHES }}
           retention-days: 14
-
-      - name: Check that every repository can be read
-        if: steps.go.outputs.go == 'true'
-        run: scripts/ci/preflight.sh
 
       # The Z3 to install is the one that the candidate F* uses by default,
       # which setup.sh reads from its source.
@@ -484,8 +486,8 @@ jobs:
           path: fixed
           merge-multiple: true
 
-      # Everything has now been built from scratch: push the fixes, then
-      # record them. The commit is made first, because it is the one thing
+      # Everything has now been built from scratch: move the olympus
+      # branches (rebased, and fixed), then record them. The commit is made first, because it is the one thing
       # that can still refuse (hashes.txt having moved), and the pushes are
       # all tried as dry runs before any of them lands.
       - name: Record the commits that were built
@@ -502,7 +504,7 @@ jobs:
           {
             PUSH=0 scripts/nightly/publish.sh "$OLYMPUS_WORK/candidate-hashes.txt" fixed "$BASE"
             if [ "$PUSH" = 1 ]; then
-              scripts/nightly/push-fixes.sh "$OLYMPUS_WORK/candidate-hashes.txt" fixed
+              scripts/nightly/push-olympus.sh "$OLYMPUS_WORK/candidate-hashes.txt" fixed
               git push origin HEAD:main
             else
               echo "(not pushing: a dry run, or not a run of main)"

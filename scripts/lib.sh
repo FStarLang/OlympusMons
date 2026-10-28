@@ -92,11 +92,17 @@ push_token_var_of () {
 
 # git push, in directory $2, to repository $1 (owner/name), as the token of
 # its organization, which the credential helper hands to git and which is
-# otherwise not visible to it. $3 is the refspec; any more arguments are
-# options of `git push`. Fails if there is no such token.
+# otherwise not visible to it. The rest of the arguments are options of `git
+# push`, then `--`, then the refspecs:
+#
+#   git_push_to <repo> <dir> [<option>...] -- <refspec>...
+#
+# Fails if there is no such token.
 git_push_to () {
-  local repo=$1 dir=$2 refspec=$3 var tok
-  shift 3
+  local repo=$1 dir=$2 var tok opts=()
+  shift 2
+  while [ "$#" -gt 0 ] && [ "$1" != -- ]; do opts+=("$1"); shift; done
+  [ "${1:-}" = -- ] && shift
   var=$(push_token_var_of "$repo")
   case $var in
     OLYMPUS_PUSH_TOKEN_FSTARLANG) tok=${OLYMPUS_PUSH_TOKEN_FSTARLANG:-} ;;
@@ -110,10 +116,31 @@ git_push_to () {
   GIT_TERMINAL_PROMPT=0 OLYMPUS_PUSH_TOKEN_NOW=$tok git -C "$dir" \
       -c credential.helper= \
       -c 'credential.helper=!f() { echo username=x-access-token; echo "password=$OLYMPUS_PUSH_TOKEN_NOW"; }; f' \
-      push "$@" "https://github.com/$repo.git" "$refspec"
+      push "${opts[@]}" "https://github.com/$repo.git" "$@"
 }
 
 src_dir () { echo "$OLYMPUS_WORK/src/$1"; }
+
+# Who the nightly's commits (its rebases and its fixes) are by.
+# shellcheck disable=SC2034  # used by the scripts that source this file
+NIGHTLY_GIT_ID=(-c user.name='OlympusMons nightly'
+                -c user.email='olympusmons-nightly@users.noreply.github.com')
+
+# What the nightly found when it rebased project $1's `olympus` branch onto
+# the tip of its default branch (see nightly/advance.sh): the value of key $2,
+# or nothing if there is none (or no nightly ran in this tree).
+#
+#   branch    the default branch, e.g. main
+#   upstream  its tip
+#   olympus   the tip of the `olympus` branch (empty if there is none)
+#   result    none (no `olympus` branch), clean (rebased, or nothing to
+#             rebase), or conflict (the rebase stopped with conflicts, and
+#             the candidate is the unrebased `olympus` tip: fix.sh rebases)
+rebase_info () {
+  local f=$OLYMPUS_WORK/nightly/rebase/$1
+  [ -f "$f" ] || return 0
+  awk -v k="$2" '$1 == k { print $2 }' "$f"
+}
 
 # How long target $1 may run before run.sh kills it and reports what it was
 # doing. These are deliberately generous -- several times the longest time

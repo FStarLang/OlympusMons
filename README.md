@@ -29,13 +29,15 @@ recorded F*).
 | kuiper | [FStarLang/kuiper](https://github.com/FStarLang/kuiper) | `make verify` only: its extraction needs its own patched F* and KaRaMeL |
 | pulse-verified-gc | [FStarLang/pulse-verified-gc](https://github.com/FStarLang/pulse-verified-gc) | the steps of its CI (`verify.yml`) |
 | AlgoStar | [FStarLang/AlgoStar](https://github.com/FStarLang/AlgoStar) | `make -C autoclrs`, as in its CI |
-| hacl-pulse | [FStarLang/hacl-pulse](https://github.com/FStarLang/hacl-pulse) | `make` (verify, extract, compile, test); the committed `dist/` must be up to date |
+| hacl-pulse | [FStarLang/hacl-pulse](https://github.com/FStarLang/hacl-pulse) | `make` (lint, verify, extract, compile, stack, test), as in its CI (`ci.yml`) |
 
 The exact commands are in [`scripts/build/`](scripts/build).
 
-When a project is not on its default branch's commit, it is usually on its
+When a project is not on its default branch's commit, it is on its
 `olympus` branch, which has the changes needed to build with the recorded
-F*. Each commit on an `olympus` branch says whether it is a minimal change
+F*: a few commits on top of the project's default branch, which the
+[nightly](#the-nightly) rebases whenever the default branch moves (it never
+merges). Each commit on an `olympus` branch says whether it is a minimal change
 (`Olympus-Change: minimal`) or works around a significant regression in F*
 (`Olympus-Change: fstar-regression-workaround`). These changes never admit
 proofs or weaken specifications.
@@ -99,10 +101,9 @@ file, F*'s KaRaMeL submodule included -- and rebuilds the F* package, for a
 build from scratch (do this before committing a new `hashes.txt`). As it
 rebuilds F*, do not use it while other builds are running.
 
-Note that several of these projects regenerate committed files as they build
-(hacl-pulse extracts into `dist/`, pulse-verified-gc into
-`generational/snapshot/`), and so leave their tree with modified tracked
-files. That is why `CLEAN=1`, and CI, put the trees back.
+Note that some of these projects regenerate committed files as they build
+(pulse-verified-gc extracts into `generational/snapshot/`), and so leave
+their tree with modified tracked files. That is why `CLEAN=1`, and CI, put the trees back.
 
 ## Updating
 
@@ -203,9 +204,13 @@ overrides this with a fixed number of parallel jobs for every job.
 OlympusMons current with F*, unattended. Every night (08:00 UTC, or on
 demand: `gh workflow run Nightly`) it:
 
-1. **Advances** F* to the tip of its `master`, and every other project to the
-   tip of its `olympus` branch (or of its default branch, for those that have
-   none yet). A project only moves forward. Nothing is written to `hashes.txt`
+1. **Advances** F* to the tip of its `master` (only ever forward), and every
+   other project to the tip of its default branch, with the commits of its
+   `olympus` branch, if it has one, **rebased** on top of it (locally; nothing
+   is pushed yet). Merge commits are flattened, and commits that upstream
+   has taken drop out, so the `olympus` branch stays a few commits on top of
+   upstream. A project whose `olympus` branch does not rebase cleanly is not
+   built: its Fix job does the rebase. Nothing is written to `hashes.txt`
    yet. If nothing is newer, it stops.
 2. **Builds** all of it from scratch, as the Build workflow does: the same
    job graph, in parallel, with a log per target. It uses a tree
@@ -213,12 +218,16 @@ demand: `gh workflow run Nightly`) it:
    own, so a Build can run beside it.
 3. **Triages.** If F* or F*'s own CI fails, it stops: that is for a person,
    and fixing the projects would be wasted. Otherwise each project that
-   failed gets a **Fix** job, in parallel with the others.
+   failed (or did not rebase) gets a **Fix** job, in parallel with the
+   others.
 4. **Fixes.** A Fix job runs the [Copilot CLI](https://github.com/github/copilot-cli)
    (autopilot, Claude Opus 5.5) once, in the tree of the failed build, with
    the failing log, the F* that changed, and the rules: no `admit`, `assume`,
    `magic`, `--lax`; no deleted or skipped lemmas or tests; no CI or pin
-   changes. There is no budget and no retry: the agent builds the project
+   changes. For a project whose `olympus` branch did not rebase cleanly, the
+   job starts the rebase and the agent first resolves its conflicts (and
+   must end with a linear history on top of upstream, without conflict
+   markers). There is no budget and no retry: the agent builds the project
    as often as it needs to, until the build passes or it gives up. The job
    then checks that its last build did pass and that the change has none of
    the shortcuts above, and commits the change **locally**. Nothing is
@@ -228,9 +237,10 @@ demand: `gh workflow run Nightly`) it:
    is a clean build of the commit, not of the tree Copilot left. (The projects
    are independent of each other, and the others were already built from
    scratch against this F*.)
-6. **Publishes.** Only if everything built, it pushes each fix (never forced)
-   to its project's `olympus` branch, which is created if there is none, and
-   then commits the new `hashes.txt` to `main`. That last push is made with a
+6. **Publishes.** Only if everything built, it moves each project's `olympus`
+   branch to what was built (the rebased branch, with its fix if it needed
+   one; the branch is created only for a fix), and then commits the new
+   `hashes.txt` to `main`. That last push is made with a
    token, so it starts a Build of it, as a final confirmation. Otherwise it
    fails, says why in its summary, and pushes and changes nothing anywhere:
    nothing reaches an `olympus` branch unless it has been built from scratch.
@@ -275,14 +285,20 @@ never commits or pushes; the workflow does that, after checking the result.
 
 ### Things to know
 
-* `olympus` branches are advanced by the nightly only with fast-forward
-  pushes. Every push is tried as a dry run first; if a branch moved while
-  the nightly ran, nothing is pushed or recorded (each fix is kept as a patch
-  in its `log-fix-<project>` artifact).
+* A rebase rewrites the `olympus` branch, so the nightly force-pushes it,
+  but with a lease: only if the branch is still where the nightly found it.
+  So that the commits recorded in older `hashes.txt` stay fetchable, every
+  commit the branch is moved to (and the one it is moved away from, if it is
+  not already tagged) is tagged `olympus/<date>-<commit>`. Every push is
+  tried as a dry run first: if a branch moved while the nightly ran, nothing
+  is pushed or recorded (each fix is kept as a patch in its
+  `log-fix-<project>` artifact).
+* So push to an `olympus` branch only between nightlies, and rebase rather
+  than merge: the nightly carries the branch's commits forward.
 * The Fix jobs run on the machine that built the project, in its tree, so a
   fix's commit exists only there until Publish pushes it.
 * Copilot has no cost cap here. The only limit is 12 hours for one agent, to
   guard against a hung session.
-* FStar, everparse and pal have no `olympus` branch until the first time one
-  of them needs a fix.
+* FStar has no `olympus` branch; everparse, pal and hacl-pulse have none
+  until the first time one of them needs a fix.
 * Only the projects are fixed, never F*.

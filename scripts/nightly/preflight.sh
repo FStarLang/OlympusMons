@@ -40,7 +40,7 @@ git -C "$probe" -c user.name=probe -c user.email=probe@example.com commit -q --a
 can_push () {
   local repo=$1 var
   var=$(push_token_var_of "$repo") || { echo "  $repo: no secret for its organization"; return 1; }
-  if ! git_push_to "$repo" "$probe" HEAD:refs/heads/olympus-nightly-probe --dry-run > /dev/null 2>&1; then
+  if ! git_push_to "$repo" "$probe" --dry-run -- HEAD:refs/heads/olympus-nightly-probe > /dev/null 2>&1; then
     echo "  $repo: cannot push (is the secret $var set, and allowed to write there?)"
     return 1
   fi

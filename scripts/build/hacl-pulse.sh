@@ -1,17 +1,13 @@
 #!/usr/bin/env bash
-# hacl-pulse has no CI; its default target verifies everything, extracts
-# dist/ (with Custard), compiles it and runs the C tests. The extracted
-# dist/ is committed, so it must also be up to date.
+# What hacl-pulse's CI (ci.yml, its verify job) runs: its default target
+# lints, verifies everything, extracts dist/ (with Custard), compiles it,
+# checks its stack frames and runs the C tests. As in its CI, the
+# constant-time audit is built but not run: on a busy shared machine its
+# timings measure the load, not the code.
 
 # shellcheck source=scripts/lib.sh
 source "$(dirname "$0")/../lib.sh"
 olympus_env
 cd "$(src_dir hacl-pulse)"
 
-pmake FSTAR_EXE="$FSTAR_EXE"
-
-if ! git diff --quiet -- dist/; then
-  msg "hacl-pulse: the committed dist/ differs from the extracted one:"
-  git diff --stat -- dist/ >&2
-  exit 1
-fi
+pmake FSTAR_EXE="$FSTAR_EXE" TEST_NORUN=test_consttime

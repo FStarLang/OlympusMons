@@ -11,7 +11,8 @@
 # nightly started from: the run then tested something other than what would
 # be replaced. Run it again.
 
-set -euo pipefail
+# shellcheck source=scripts/lib.sh
+source "$(dirname "$0")/../lib.sh"
 
 candidate=${1:?usage: publish.sh <candidate-hashes> <fixed-dir> <base-sha>}
 fixed=${2:?}
@@ -31,8 +32,16 @@ for f in "$fixed"/*.hash; do
   p=$(basename "$f" .hash)
   new=$(cat "$f")
   sed -E -i "s/^($p):[0-9a-f]+/\1:$new/" hashes.txt
-  notes="$notes
-- $p: fixed by Copilot, on its olympus branch"
+done
+for p in "${PROJECTS[@]}"; do
+  note=''
+  if [ "$(rebase_info "$p" result)" = conflict ]; then
+    note="its olympus branch did not rebase onto $(rebase_info "$p" branch); Copilot rebased it, and fixed what broke"
+  elif [ -e "$fixed/$p.hash" ]; then
+    note="fixed by Copilot, on its olympus branch"
+  fi
+  [ -z "$note" ] || notes="$notes
+- $p: $note"
 done
 
 if git diff --quiet -- hashes.txt; then

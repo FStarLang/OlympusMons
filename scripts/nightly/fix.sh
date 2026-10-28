@@ -12,12 +12,19 @@
 #   * the change must not have the shortcuts that make a proof "work" by
 #     weakening it (admit, assume, --lax, ...).
 #
+# If the nightly could not rebase the project's `olympus` branch onto its
+# upstream (see advance.sh), the tree is at the old `olympus` tip, nothing
+# was built, and the agent's first job is to finish that rebase: this script
+# starts it, the agent resolves the conflicts, and the result must then be
+# a linear history on top of upstream, without conflict markers.
+#
 # If so, the change is committed *locally*, and the commit is left in
 # $OLYMPUS_NIGHTLY_OUT/<project>.hash. Nothing is pushed here: the Verify job
 # builds every such commit from scratch, and only if all of them pass does
 # the Publish job push them to the `olympus` branches and record them.
 #
-# The agent has no credentials but its own, and is told not to use git.
+# The agent has no credentials but its own, and is told not to use git (but
+# to finish the rebase, if there is one).
 #
 # Environment:
 #   COPILOT_GITHUB_TOKEN     Copilot credentials (required)
@@ -65,6 +72,15 @@ command -v copilot > /dev/null || fail "the Copilot CLI is not installed"
 [ -d "$src/.git" ] || fail "there is no tree at $src: the build that failed should have left it"
 
 base=$(git -C "$src" rev-parse HEAD)
+rebasing=0
+[ "$(rebase_info "$p" result)" = conflict ] && rebasing=1
+upstream=$(rebase_info "$p" upstream)
+branch=$(rebase_info "$p" branch)
+olympus_old=$(rebase_info "$p" olympus)
+# What the agent's change is measured against: the commit it started from,
+# or when it rebases, the upstream commit that it rebases onto.
+from=$base
+[ "$rebasing" = 1 ] && from=$upstream
 fstar_new=$(hash_of FStar)
 fstar_old=$(git -C "$OLYMPUS_ROOT" show HEAD:hashes.txt 2> /dev/null \
             | sed -e 's/#.*//' | awk -F: '$1 == "FStar" { print $2 }')
@@ -81,6 +97,9 @@ cp "$logs/$p.log" "$logs/$p.initial.log"
 # Added lines that would make a proof pass by weakening it. Only in the files
 # people write: the generated ones (extracted OCaml and C) are full of
 # Obj.magic and friends.
+# Lines that the change may add although they match: when rebasing, the ones
+# that the `olympus` branch already added (and that were checked then).
+allowed=$(mktemp)
 shortcuts='admit_smt_queries|--lax|--admit|\badmit ?\(|\bmagic ?\(|\bassume ?\(|\bassume +val\b'
 written_by_hand='\.fsti?$|\.fst\.config\.json$|(^|/)Makefile$|\.Makefile$|\.mk$|^\.github/'
 
@@ -90,17 +109,55 @@ agent_files () {
     | comm -13 "$untracked_before" -
 }
 
+# The lines that `git diff <args>` adds to the files written by hand.
+added_by_hand () {
+  git -C "$src" diff -U0 "$@" \
+    | RE="$written_by_hand" awk '
+        /^\+\+\+ / { keep = (substr($0, 7) ~ ENVIRON["RE"]); next }
+        keep && /^\+/ { print }'
+}
+
 find_shortcuts () {
   local f
-  git -C "$src" diff HEAD -U0 \
-    | RE="$written_by_hand" awk '
-        /^\+\+\+ b\// { keep = (substr($0, 7) ~ ENVIRON["RE"]); next }
-        keep && /^\+/ { print }' \
-    | grep -E -- "$shortcuts" || true
+  added_by_hand "$from" | grep -E -- "$shortcuts" | grep -vxF -f "$allowed" || true
   { agent_files | grep -E -- "$written_by_hand" || true; } | while read -r f; do
     grep -H -E -- "$shortcuts" "$src/$f" || true
   done
 }
+
+if [ "$rebasing" = 1 ]; then
+  [ "$base" = "$olympus_old" ] \
+    || fail "the tree is at ${base:0:12}, not at the olympus tip ${olympus_old:0:12} that does not rebase"
+  added_by_hand "$(git -C "$src" merge-base "$olympus_old" "$upstream")" "$olympus_old" \
+    | grep -E -- "$shortcuts" > "$allowed" || true
+  # It stops at the first conflict, for the agent to resolve.
+  if git -C "$src" "${NIGHTLY_GIT_ID[@]}" rebase "$upstream" > "$logs/$p.rebase.log" 2>&1; then
+    msg "$p: the olympus branch rebases cleanly onto $branch now"
+  fi
+fi
+
+rebase_task=''
+if [ "$rebasing" = 1 ]; then
+  rebase_task="
+But first: the project's \`olympus\` branch, which has the changes that
+OlympusMons needs on top of the project's own $branch branch, has to move to
+the new tip of $branch, $upstream. That is a rebase, and it stopped with
+conflicts. The rebase is in progress in this tree ('git status' says
+where). Finish it:
+
+  - Resolve each conflict, keeping what the \`olympus\` commit was for on
+    top of the new upstream code. Upstream may have made the same change, or
+    changed the code that it adapted; read both sides ('git log' and 'git
+    diff' work, and so does 'git show REBASE_HEAD').
+  - 'git add' (or 'git rm') the resolved files, then
+    'GIT_EDITOR=true git rebase --continue'. Repeat until it is done.
+  - 'git rebase --skip' only a commit that upstream already has. Never
+    'git rebase --abort', and do not make merge commits.
+
+Only then build the project, and fix it as below. Do not amend the rebased
+commits: leave your fixes to the build uncommitted, as the rules say.
+"
+fi
 
 fstar_hint=''
 if [ "$fstar_old" != unknown ] && [ "$fstar_old" != "$fstar_new" ]; then
@@ -121,7 +178,7 @@ projects that are built together against one F*.
 Tonight F* was advanced to its latest master, $fstar_new, and the project
 $p ($repo, at $base) no longer builds with it. Your job is to change $p, and
 only $p, so that it builds again.
-$fstar_hint
+$rebase_task$fstar_hint
 The current directory is the project's tree. It is what the failed build left,
 so a build resumes rather than starting over: files that verified already
 are not checked again.
@@ -167,8 +224,9 @@ Rules:
 - Do not change the project's CI configuration (.github), or its pins of F*
   or any dependency; they are overridden here.
 - Do not run git commit, git push or anything else that writes to a git
-  repository, and you have no credentials to: the workflow commits what you
-  leave in the tree, once it has checked it.
+  repository (other than finishing the rebase, if there is one), and you
+  have no credentials to push: the workflow commits what you leave in the
+  tree, once it has checked it.
 - Files that the build regenerates and that are committed (extracted C or
   OCaml, snapshots, dist/) are regenerated by the build: do not edit them by
   hand.
@@ -189,9 +247,14 @@ prompt > "$logs/$p.prompt.md"
 msg "$p: running Copilot ($model, autopilot, no credit cap, stopped after $(duration "$limit"))"
 rc=0
 # Nothing in its environment that it does not need: no GitHub credential
-# that git or gh could use.
+# that git or gh could use. When it rebases, git needs a committer.
+git_id=()
+[ "$rebasing" = 1 ] && git_id=(
+  GIT_COMMITTER_NAME='OlympusMons nightly'
+  GIT_COMMITTER_EMAIL='olympusmons-nightly@users.noreply.github.com'
+  GIT_EDITOR=true)
 ( cd "$src" && timeout -k 60s "$limit" env \
-    COPILOT_GITHUB_TOKEN="$copilot_token" \
+    COPILOT_GITHUB_TOKEN="$copilot_token" "${git_id[@]}" \
     GH_CONFIG_DIR="$(mktemp -d)" GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 \
     copilot -p "$(cat "$logs/$p.prompt.md")" \
       --autopilot --yolo --no-ask-user --no-color \
@@ -210,6 +273,22 @@ if [ "$result" != ok ]; then
   fail "Copilot did not get $p to build (its last build: $result; Copilot exit status $rc). Its transcript and logs are in the \`log-fix-$p\` artifact."
 fi
 
+if [ "$rebasing" = 1 ]; then
+  gitdir=$(git -C "$src" rev-parse --absolute-git-dir)
+  if [ -d "$gitdir/rebase-merge" ] || [ -d "$gitdir/rebase-apply" ]; then
+    fail "Copilot did not finish rebasing the olympus branch onto $branch."
+  fi
+  git -C "$src" merge-base --is-ancestor "$upstream" HEAD \
+    || fail "the result is not on top of $branch (${upstream:0:12})."
+  [ -z "$(git -C "$src" rev-list --merges "$upstream..HEAD")" ] \
+    || fail "the rebased olympus branch has merge commits."
+  markers=$(git -C "$src" diff -U0 "$upstream" | grep -E '^\+(<<<<<<<|>>>>>>>)( |$)|^\+=======$' || true)
+  [ -z "$markers" ] || fail "the rebase left conflict markers:
+\`\`\`
+$markers
+\`\`\`"
+fi
+
 bad=$(find_shortcuts)
 if [ -n "$bad" ]; then
   echo "$bad" | tee "$logs/$p.rejected.txt" >&2
@@ -223,7 +302,7 @@ fi
 # the failed build had left lying about. Locally only.
 git -C "$src" add -u
 agent_files | while read -r f; do git -C "$src" add -- "$f"; done
-if git -C "$src" diff --cached --quiet; then
+if git -C "$src" diff --cached --quiet && [ "$rebasing" = 0 ]; then
   msg "$p: it builds with nothing changed (the failure did not reproduce)"
   echo "$base" > "$out/$p.hash"
   summary "### :white_check_mark: \`$p\`: builds now, with no change"
@@ -232,11 +311,11 @@ if git -C "$src" diff --cached --quiet; then
   exit 0
 fi
 
-git -C "$src" diff --cached --stat | tail -n 20
 run_url=${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY:-FStarLang/OlympusMons}/actions/runs/${GITHUB_RUN_ID:-0}
-git -C "$src" -c user.name='OlympusMons nightly' \
-    -c user.email='olympusmons-nightly@users.noreply.github.com' \
-    commit -q -F - <<EOF
+# When it rebased, the rebased commits may be all there is to it.
+if ! git -C "$src" diff --cached --quiet; then
+  git -C "$src" diff --cached --stat | tail -n 20
+  git -C "$src" "${NIGHTLY_GIT_ID[@]}" commit -q -F - <<EOF
 Adapt to F* ${fstar_new:0:12}
 
 The OlympusMons nightly advanced F* to ${fstar_new:0:12} and found that this
@@ -244,15 +323,23 @@ project no longer built. This change was written by the GitHub Copilot CLI
 ($model, autopilot) and checked by building the project against that F*:
 $run_url
 EOF
+fi
 new=$(git -C "$src" rev-parse HEAD)
-git -C "$src" format-patch -1 --stdout > "$out/$p.fix.patch"
+# Kept alive until the Publish job pushes it.
+git -C "$src" update-ref refs/olympus/fix "$new"
+git -C "$src" format-patch --stdout "$from..$new" > "$out/$p.fix.patch"
 echo "$new" > "$out/$p.hash"
 
 summary "### :white_check_mark: \`$p\`: Copilot got it to build"
 summary ""
-summary "\`${new:0:12}\` (on \`$base\`), not pushed yet: it is built from scratch next, and pushed to \`$repo\` only if everything works."
+if [ "$rebasing" = 1 ]; then
+  summary "Copilot rebased the olympus branch onto \`$branch\` (\`${upstream:0:12}\`): \`${new:0:12}\`, $(git -C "$src" rev-list --count "$upstream..$new") commit(s) on top of it."
+else
+  summary "\`${new:0:12}\` (on \`$base\`)."
+fi
+summary "Not pushed yet: it is built from scratch next, and pushed to \`$repo\` only if everything works."
 summary ""
 summary '```'
-summary "$(git -C "$src" show --stat --format= "$new" | tail -n 30)"
+summary "$(git -C "$src" diff --stat "$from" "$new" | tail -n 30)"
 summary '```'
 msg "$p: committed ${new:0:12}, to be verified"

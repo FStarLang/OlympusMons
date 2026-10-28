@@ -40,6 +40,21 @@ if [ "$t" = "$p" ] && [ "${NOCHECKOUT:-0}" != 1 ]; then
 fi
 rev=$(git -C "$(src_dir "$p")" rev-parse HEAD)
 
+# The nightly could not rebase this project's `olympus` branch onto its
+# upstream (see nightly/advance.sh), so what is checked out is the old
+# `olympus` tip, which is not worth hours of building: the Fix job rebases.
+if [ "$t" = "$p" ] && [ "${NOCHECKOUT:-0}" != 1 ] \
+   && [ "$(rebase_info "$p" result)" = conflict ] \
+   && [ "$rev" = "$(rebase_info "$p" olympus)" ]; then
+  { echo "[olympus] $p: the olympus branch does not rebase cleanly onto" \
+         "$(rebase_info "$p" branch) ($(rebase_info "$p" upstream)); not built."
+    cat "$OLYMPUS_WORK/nightly/rebase/$p.rebase.log" 2> /dev/null || true
+  } >> "$log"
+  echo "CONFLICT $rev 0" > "$status"
+  msg "$t: CONFLICT (the olympus branch does not rebase onto upstream)"
+  exit 1
+fi
+
 OLYMPUS_TIMEOUT=$(timeout_of "$t")
 limit=$(timeout_secs "$OLYMPUS_TIMEOUT")
 

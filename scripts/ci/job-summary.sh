@@ -25,6 +25,7 @@ case $result in
   ok)      icon=':white_check_mark:' ;;
   TIMEOUT) icon=':hourglass:' ;;
   FAILED)  icon=':x:' ;;
+  CONFLICT) icon=':twisted_rightwards_arrows:' ;;
   *)       icon=':heavy_minus_sign:' ;;
 esac
 
