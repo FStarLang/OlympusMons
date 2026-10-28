@@ -14,8 +14,8 @@
 name: Build
 
 on:
-  push:
-    branches: [main]
+  # Not on pushes to main: those are mostly the nightly recording commits
+  # that it has just built.
   pull_request:
   workflow_dispatch:
     inputs:

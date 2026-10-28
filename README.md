@@ -116,8 +116,8 @@ fix what breaks.
 ## Continuous integration
 
 [`.github/workflows/build.yml`](.github/workflows/build.yml) builds everything
-from scratch on every push to `main`, on every pull request (except from
-forks), and on demand (`gh workflow run Build`). It is a graph of jobs:
+from scratch on every pull request (except from forks) and on demand
+(`gh workflow run Build`). It is a graph of jobs:
 
 ```
                       /  FStar-ci   \
