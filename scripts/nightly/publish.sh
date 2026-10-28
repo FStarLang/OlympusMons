@@ -10,6 +10,11 @@
 # Refuses if hashes.txt has changed since <base-sha>, the commit that the
 # nightly started from: the run then tested something other than what would
 # be replaced. Run it again.
+#
+# With REQUIRE_PUSHED=1, also refuses unless every project's commit has been
+# pushed to its repository (push-olympus.sh notes it in
+# $OLYMPUS_WORK/nightly/pushed): hashes.txt must name commits that can be
+# fetched.
 
 # shellcheck source=scripts/lib.sh
 source "$(dirname "$0")/../lib.sh"
@@ -22,6 +27,19 @@ if [ "$(git show "$base:hashes.txt")" != "$(cat hashes.txt)" ]; then
   echo "hashes.txt has changed since this run started ($base); not publishing." >&2
   echo "The next run starts from the new one." >&2
   exit 1
+fi
+
+if [ "${REQUIRE_PUSHED:-0}" = 1 ]; then
+  unpushed=()
+  for p in "${PROJECTS[@]:1}"; do
+    want=$(OLYMPUS_HASHES=$candidate hash_of "$p")
+    [ -f "$fixed/$p.hash" ] && want=$(cat "$fixed/$p.hash")
+    [ "$(cat "$OLYMPUS_WORK/nightly/pushed/$p" 2> /dev/null)" = "$want" ] || unpushed+=("$p")
+  done
+  if [ "${#unpushed[@]}" -gt 0 ]; then
+    echo "not pushed to their repositories: ${unpushed[*]}; not publishing." >&2
+    exit 1
+  fi
 fi
 
 cp hashes.txt /tmp/olympus-old-hashes.$$
@@ -40,6 +58,9 @@ for p in "${PROJECTS[@]}"; do
   elif [ -e "$fixed/$p.hash" ]; then
     note="fixed by Copilot, on its olympus branch"
   fi
+  if [ -n "$note" ] && pr_project "$p"; then
+    note="$note, in a pull request"
+  fi
   [ -z "$note" ] || notes="$notes
 - $p: $note"
 done
@@ -52,10 +73,10 @@ fi
 
 table=$(
   while IFS=: read -r p new; do
-    old=$(sed -e 's/#.*//' "/tmp/olympus-old-hashes.$$" | awk -F: -v p="$p" '$1 == p { print $2 }')
+    old=$(sed -e 's/#.*//' -e 's/[[:space:]]//g' "/tmp/olympus-old-hashes.$$" | awk -F: -v p="$p" '$1 == p { print $2 }')
     [ "$old" = "$new" ] && continue
     printf '%s: %s -> %s\n' "$p" "${old:0:12}" "${new:0:12}"
-  done < <(sed -e 's/#.*//' -e '/^[[:space:]]*$/d' hashes.txt)
+  done < <(sed -e 's/#.*//' -e 's/[[:space:]]//g' -e '/^$/d' hashes.txt)
 )
 rm -f /tmp/olympus-old-hashes.$$
 

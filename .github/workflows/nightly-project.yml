@@ -4,7 +4,9 @@
 # the tree that the failed build left, then build the repair from scratch.
 # The job passes exactly when the target builds, with or without a repair; a
 # repair that built is left in $OLYMPUS_WORK/nightly/fixed/<target>.hash, for
-# the targets that depend on it and for the Publish job.
+# the targets that depend on it and for the Publish job. Once the target
+# builds, what was built is pushed to its repository (its `olympus` branch,
+# or a pull request), whether or not the other targets build.
 name: Nightly target
 
 on:
@@ -24,10 +26,22 @@ on:
       model:
         type: string
         default: claude-opus-5.5
+      project:
+        description: Whether the target is a project, with a repository to push to.
+        type: boolean
+        default: true
+      push:
+        description: Push what was built (otherwise, only say what would be).
+        type: boolean
+        default: false
     secrets:
       OLYMPUS_GH_TOKEN:
         required: false
       COPILOT_GITHUB_TOKEN:
+        required: false
+      OLYMPUS_PUSH_TOKEN_FSTARLANG:
+        required: false
+      OLYMPUS_PUSH_TOKEN_PROJECT_EVEREST:
         required: false
 
 permissions:
@@ -163,3 +177,16 @@ jobs:
           path: ci-logs-verify/
           retention-days: 14
           if-no-files-found: warn
+
+      # It builds. A push that fails does not fail the job, so that the
+      # targets that depend on this one are still built: the Publish job
+      # finds out (from $OLYMPUS_WORK/nightly/pushed), and records nothing.
+      # The push tokens are given to this step only, after the builds.
+      - name: Push ${{ inputs.target }}
+        if: inputs.project
+        continue-on-error: true
+        env:
+          PUSH: ${{ inputs.push && '1' || '0' }}
+          OLYMPUS_PUSH_TOKEN_FSTARLANG: ${{ secrets.OLYMPUS_PUSH_TOKEN_FSTARLANG }}
+          OLYMPUS_PUSH_TOKEN_PROJECT_EVEREST: ${{ secrets.OLYMPUS_PUSH_TOKEN_PROJECT_EVEREST }}
+        run: scripts/nightly/push-olympus.sh "$T"

@@ -57,7 +57,7 @@ rev=$(git -C "$(src_dir "$p")" rev-parse HEAD)
 
 # The nightly could not rebase this project's `olympus` branch onto its
 # upstream (see nightly/advance.sh), so what is checked out is the old
-# `olympus` tip, which is not worth hours of building: the Fix job rebases.
+# `olympus` tip, which is not worth hours of building: fix.sh rebases.
 if [ "$t" = "$p" ] && [ "${NOCHECKOUT:-0}" != 1 ] \
    && [ "$(rebase_info "$p" result)" = conflict ] \
    && [ "$rev" = "$(rebase_info "$p" olympus)" ]; then

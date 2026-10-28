@@ -6,11 +6,15 @@
 #
 #                    one job per target (nightly-project.yml):
 #   Set up -> F* -> build; if it fails, Copilot repairs it (once, no
-#                   budget) and the repair is built from scratch -> Publish
+#                   budget) and the repair is built from scratch; then
+#                   push it (olympus branch, or pull request)  -> Publish
 #
-# A target starts as soon as F* and its dependencies (deps_of in lib.sh)
-# have built: atlas waits for everparse and hacl-pulse, with their repairs.
-# Its job fails exactly when it does not build, even after a repair.
+# F* is the latest F* nightly (FStarLang/FStar-nightly). A target starts as
+# soon as F* and its dependencies (deps_of in lib.sh) have built: atlas
+# waits for everparse and hacl-pulse, with their repairs. Its job fails
+# exactly when it does not build, even after a repair. Each project is
+# pushed as soon as it builds; hashes.txt is recorded only if all of them
+# do.
 #
 # It runs on the same self-hosted runners as the Build workflow, in a tree
 # and an opam switch of its own, so that it does not disturb a Build.
@@ -29,8 +33,9 @@ on:
         default: true
       publish:
         description: >-
-          Record and push the result to main when everything builds. Turn
-          this off to try the nightly without changing anything.
+          Push each project that builds (its olympus branch, or a pull
+          request), and record hashes.txt on main when everything builds.
+          Turn this off to try the nightly without changing anything.
         type: boolean
         default: true
       force:
@@ -39,7 +44,8 @@ on:
         default: false
       fstar_rev:
         description: >-
-          The F* branch or commit to advance to (empty means master).
+          The F* nightly (nightly-YYYY-MM-DD), branch or commit to advance
+          to (empty means the latest nightly).
         type: string
         required: false
       model:
@@ -80,6 +86,10 @@ jobs:
       go: ${{ steps.go.outputs.go }}
       minutes: ${{ steps.minutes.outputs.minutes }}
       fix: ${{ steps.tokens.outputs.fix }}
+      # Only a run of main changes anything.
+      push: >-
+        ${{ github.ref == 'refs/heads/main' &&
+        (github.event_name != 'workflow_dispatch' || inputs.publish) }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -224,7 +234,7 @@ jobs:
       target: FStar-ci
       minutes: ${{ fromJSON(needs.setup.outputs.minutes)['FStar-ci'] }}
       fix: false
-      model: ${{ inputs.model || 'claude-opus-5.5' }}
+      project: false
     secrets: inherit
 
   everparse:
@@ -237,6 +247,7 @@ jobs:
       minutes: ${{ fromJSON(needs.setup.outputs.minutes)['everparse'] }}
       fix: ${{ needs.setup.outputs.fix == 'true' }}
       model: ${{ inputs.model || 'claude-opus-5.5' }}
+      push: ${{ needs.setup.outputs.push == 'true' }}
     secrets: inherit
 
   pal:
@@ -249,6 +260,7 @@ jobs:
       minutes: ${{ fromJSON(needs.setup.outputs.minutes)['pal'] }}
       fix: ${{ needs.setup.outputs.fix == 'true' }}
       model: ${{ inputs.model || 'claude-opus-5.5' }}
+      push: ${{ needs.setup.outputs.push == 'true' }}
     secrets: inherit
 
   kuiper:
@@ -261,6 +273,7 @@ jobs:
       minutes: ${{ fromJSON(needs.setup.outputs.minutes)['kuiper'] }}
       fix: ${{ needs.setup.outputs.fix == 'true' }}
       model: ${{ inputs.model || 'claude-opus-5.5' }}
+      push: ${{ needs.setup.outputs.push == 'true' }}
     secrets: inherit
 
   pulse-verified-gc:
@@ -273,6 +286,7 @@ jobs:
       minutes: ${{ fromJSON(needs.setup.outputs.minutes)['pulse-verified-gc'] }}
       fix: ${{ needs.setup.outputs.fix == 'true' }}
       model: ${{ inputs.model || 'claude-opus-5.5' }}
+      push: ${{ needs.setup.outputs.push == 'true' }}
     secrets: inherit
 
   AlgoStar:
@@ -285,6 +299,7 @@ jobs:
       minutes: ${{ fromJSON(needs.setup.outputs.minutes)['AlgoStar'] }}
       fix: ${{ needs.setup.outputs.fix == 'true' }}
       model: ${{ inputs.model || 'claude-opus-5.5' }}
+      push: ${{ needs.setup.outputs.push == 'true' }}
     secrets: inherit
 
   hacl-pulse:
@@ -297,6 +312,7 @@ jobs:
       minutes: ${{ fromJSON(needs.setup.outputs.minutes)['hacl-pulse'] }}
       fix: ${{ needs.setup.outputs.fix == 'true' }}
       model: ${{ inputs.model || 'claude-opus-5.5' }}
+      push: ${{ needs.setup.outputs.push == 'true' }}
     secrets: inherit
 
   atlas:
@@ -309,6 +325,7 @@ jobs:
       minutes: ${{ fromJSON(needs.setup.outputs.minutes)['atlas'] }}
       fix: ${{ needs.setup.outputs.fix == 'true' }}
       model: ${{ inputs.model || 'claude-opus-5.5' }}
+      push: ${{ needs.setup.outputs.push == 'true' }}
     secrets: inherit
 
   publish:
@@ -361,28 +378,21 @@ jobs:
 
       - uses: ./.github/actions/olympus-runner
 
-      # Everything has now been built from scratch: move the olympus
-      # branches (rebased, and repaired, as the jobs left them in
-      # $OLYMPUS_WORK/nightly/fixed), then record them. The commit is made
-      # first, because it is the one thing that can still refuse (hashes.txt
-      # having moved), and the pushes are all tried as dry runs before any of
-      # them lands.
+      # Everything has now been built from scratch, and each project's job
+      # has pushed what it built (rebased, and repaired, as the jobs left
+      # them in $OLYMPUS_WORK/nightly/fixed): record it.
       - name: Record the commits that were built
         env:
           # Only a run of main can change main.
-          PUSH: >-
-            ${{ github.ref == 'refs/heads/main' &&
-            (github.event_name != 'workflow_dispatch' || inputs.publish) && '1' || '0' }}
+          PUSH: ${{ needs.setup.outputs.push == 'true' && '1' || '0' }}
           BASE: ${{ github.sha }}
-          OLYMPUS_PUSH_TOKEN_FSTARLANG: ${{ secrets.OLYMPUS_PUSH_TOKEN_FSTARLANG }}
-          OLYMPUS_PUSH_TOKEN_PROJECT_EVEREST: ${{ secrets.OLYMPUS_PUSH_TOKEN_PROJECT_EVEREST }}
         run: |
           fixed=$OLYMPUS_WORK/nightly/fixed
           mkdir -p "$fixed"
           {
-            PUSH=0 scripts/nightly/publish.sh "$OLYMPUS_WORK/candidate-hashes.txt" "$fixed" "$BASE"
+            REQUIRE_PUSHED=$PUSH scripts/nightly/publish.sh \
+              "$OLYMPUS_WORK/candidate-hashes.txt" "$fixed" "$BASE"
             if [ "$PUSH" = 1 ]; then
-              scripts/nightly/push-olympus.sh "$OLYMPUS_WORK/candidate-hashes.txt" "$fixed"
               git push origin HEAD:main
             else
               echo "(not pushing: a dry run, or not a run of main)"

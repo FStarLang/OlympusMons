@@ -100,6 +100,22 @@ push_token_var_of () {
   esac
 }
 
+# The value of the push token for repository $1 (see push_token_var_of), or
+# an error if it is not set.
+push_token_of () {
+  local var tok=''
+  var=$(push_token_var_of "$1") || return 1
+  case $var in
+    OLYMPUS_PUSH_TOKEN_FSTARLANG) tok=${OLYMPUS_PUSH_TOKEN_FSTARLANG:-} ;;
+    OLYMPUS_PUSH_TOKEN_PROJECT_EVEREST) tok=${OLYMPUS_PUSH_TOKEN_PROJECT_EVEREST:-} ;;
+  esac
+  if [ -z "$tok" ]; then
+    echo "$var is not set: cannot push to $1" >&2
+    return 1
+  fi
+  echo "$tok"
+}
+
 # git push, in directory $2, to repository $1 (owner/name), as the token of
 # its organization, which the credential helper hands to git and which is
 # otherwise not visible to it. The rest of the arguments are options of `git
@@ -109,23 +125,16 @@ push_token_var_of () {
 #
 # Fails if there is no such token.
 git_push_to () {
-  local repo=$1 dir=$2 var tok opts=()
+  local repo=$1 dir=$2 tok opts=()
   shift 2
   while [ "$#" -gt 0 ] && [ "$1" != -- ]; do opts+=("$1"); shift; done
   [ "${1:-}" = -- ] && shift
-  var=$(push_token_var_of "$repo")
-  case $var in
-    OLYMPUS_PUSH_TOKEN_FSTARLANG) tok=${OLYMPUS_PUSH_TOKEN_FSTARLANG:-} ;;
-    OLYMPUS_PUSH_TOKEN_PROJECT_EVEREST) tok=${OLYMPUS_PUSH_TOKEN_PROJECT_EVEREST:-} ;;
-  esac
-  if [ -z "$tok" ]; then
-    echo "$var is not set: cannot push to $repo" >&2
-    return 1
-  fi
+  tok=$(push_token_of "$repo") || return 1
   # shellcheck disable=SC2016  # expanded by the helper, from the environment
   GIT_TERMINAL_PROMPT=0 OLYMPUS_PUSH_TOKEN_NOW=$tok git -C "$dir" \
       -c credential.helper= \
       -c 'credential.helper=!f() { echo username=x-access-token; echo "password=$OLYMPUS_PUSH_TOKEN_NOW"; }; f' \
+      -c core.hooksPath=/dev/null \
       push "${opts[@]}" "https://github.com/$repo.git" "$@"
 }
 
@@ -150,6 +159,72 @@ rebase_info () {
   local f=$OLYMPUS_WORK/nightly/rebase/$1
   [ -f "$f" ] || return 0
   awk -v k="$2" '$1 == k { print $2 }' "$f"
+}
+
+# The projects whose changes go upstream as a pull request (from their
+# `olympus` branch to their default branch) rather than living on the
+# `olympus` branch: those that pin an F* nightly themselves, which the
+# nightly bumps (see bump_nightly_pin).
+pr_project () {
+  case "$1" in
+    pal|hacl-pulse) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# The F* nightly (FStarLang/FStar-nightly, e.g. nightly-2026-10-28) that
+# the nightly run advanced F* to, or nothing if F* is not at a nightly (an
+# explicit fstar_rev). Written by nightly/advance.sh.
+fstar_nightly () {
+  cat "$OLYMPUS_WORK/nightly/fstar-nightly" 2> /dev/null || true
+}
+
+# Make the tree $2 of project $1 pin the F* nightly $3 (nightly-YYYY-MM-DD),
+# wherever it pins one (pr_project).
+bump_nightly_pin () {
+  local p=$1 dir=$2 tag=$3 date=${3#nightly-}
+  case "$p" in
+    hacl-pulse)
+      echo "$tag" > "$dir/.fstar-nightly" ;;
+    pal)
+      sed -E -i "s/--version [0-9]{4}-[0-9]{2}-[0-9]{2}/--version $date/" "$dir/opt/install-fstar.sh"
+      sed -E -i "s/nightly [0-9]{4}-[0-9]{2}-[0-9]{2}/nightly $date/" "$dir/README.md" ;;
+  esac
+}
+
+# The subject of the commits that bump_commit makes. Rebasing drops them
+# (olympus_rebase): each nightly makes its own, on top.
+BUMP_SUBJECT='Bump the F* nightly to'
+
+# In the tree $2 of project $1 (at a commit, not a branch), commit the bump
+# of its F* nightly pin to the one the nightly advanced to, if it is a
+# pr_project and the pin changes. The commit is a function of its parent and
+# the nightly, so that the same run made twice makes the same commit.
+bump_commit () {
+  local p=$1 dir=$2 tag date
+  tag=$(fstar_nightly)
+  pr_project "$p" && [ -n "$tag" ] || return 0
+  bump_nightly_pin "$p" "$dir" "$tag"
+  git -C "$dir" diff --quiet && return 0
+  date=$(git -C "$dir" log -1 --format=%cI HEAD)
+  git -C "$dir" add -u
+  GIT_AUTHOR_DATE=$date GIT_COMMITTER_DATE=$date \
+    git -C "$dir" "${NIGHTLY_GIT_ID[@]}" commit -q -F - <<EOF
+$BUMP_SUBJECT $tag
+
+So that this project's own CI uses the F* nightly that OlympusMons has
+built it with.
+
+Olympus-Change: minimal
+EOF
+}
+
+# Rebase HEAD of the tree $1 onto $2, linearly, leaving out the commits of
+# bump_commit. Stops at the first conflict, as `git rebase` does.
+olympus_rebase () {
+  local dir=$1 onto=$2
+  GIT_SEQUENCE_EDITOR="sed -i -E '/^pick [0-9a-f]+ ${BUMP_SUBJECT//\*/\\*} /s/^pick/drop/'" \
+    git -C "$dir" "${NIGHTLY_GIT_ID[@]}" rebase -i "$onto"
 }
 
 # How long target $1 may run before run.sh kills it and reports what it was

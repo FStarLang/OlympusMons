@@ -42,10 +42,15 @@ When a project is not on its default branch's commit, it is on its
 `olympus` branch, which has the changes needed to build with the recorded
 F*: a few commits on top of the project's default branch, which the
 [nightly](#the-nightly) rebases whenever the default branch moves (it never
-merges). Each commit on an `olympus` branch says whether it is a minimal change
-(`Olympus-Change: minimal`) or works around a significant regression in F*
-(`Olympus-Change: fstar-regression-workaround`). These changes never admit
-proofs or weaken specifications.
+merges). pal and hacl-pulse are different: they pin an F* nightly
+themselves, and their changes go upstream, as a pull request from their
+`olympus` branch, which also bumps that pin to the nightly that OlympusMons
+builds with. Each commit on an `olympus` branch says whether it is a minimal
+change (`Olympus-Change: minimal`) or works around a significant regression
+in F* (`Olympus-Change: fstar-regression-workaround`). A pull request whose
+commits are all minimal goes on the project's merge queue by itself; any
+other waits for a review. These changes never admit proofs or weaken
+specifications.
 
 There is one Z3: the official release of the version that the recorded F*
 uses by default (its `--z3version`, e.g. 5.3.0), downloaded by F*'s own
@@ -212,14 +217,19 @@ overrides this with a fixed number of parallel jobs for every job.
 OlympusMons current with F*, unattended. Every night (08:00 UTC, or on
 demand: `gh workflow run Nightly`) it:
 
-1. **Advances** F* to the tip of its `master` (only ever forward), and every
-   other project to the tip of its default branch, with the commits of its
-   `olympus` branch, if it has one, **rebased** on top of it (locally; nothing
-   is pushed yet). Merge commits are flattened, and commits that upstream
-   has taken drop out, so the `olympus` branch stays a few commits on top of
-   upstream. A project whose `olympus` branch does not rebase cleanly is not
-   built: Copilot does the rebase (below). Nothing is written to
-   `hashes.txt` yet. If nothing is newer, it stops.
+1. **Advances** F* to the latest F* nightly (the newest release of
+   [FStarLang/FStar-nightly](https://github.com/FStarLang/FStar-nightly),
+   whose tags are F* commits; only ever forward), and every other project
+   to the tip of its default branch, with the commits of its `olympus`
+   branch, if it has one, **rebased** on top of it (locally; nothing is
+   pushed yet). Merge commits are flattened, and commits that upstream has
+   taken drop out, so the `olympus` branch stays a few commits on top of
+   upstream. For pal and hacl-pulse, the branch is only carried forward
+   while its pull request is open, and a commit on top bumps their F*
+   nightly pin (replacing the previous night's). A project whose `olympus`
+   branch does not rebase cleanly is not built: Copilot does the rebase
+   (below). Nothing is written to `hashes.txt` yet. If nothing is newer, it
+   stops.
 2. **Builds** F*, and then each target in a job of its own
    ([`nightly-project.yml`](.github/workflows/nightly-project.yml)), from
    scratch, in parallel, with a log per target. A target that depends on
@@ -240,7 +250,8 @@ demand: `gh workflow run Nightly`) it:
    budget and no retry: the agent builds the project as often as it needs
    to, until the build passes or it gives up. The job then checks that its
    last build did pass and that the change has none of the shortcuts above,
-   and commits the change **locally**. Nothing is pushed. F*'s own CI
+   and commits the change **locally**, saying (as Copilot classified it)
+   whether it is minimal. Nothing is pushed yet. F*'s own CI
    (FStar-ci) is not repaired: a failure there is for a person. Since
    repairs start without waiting for it, a broken F* can cost the agents
    some work that is thrown away.
@@ -249,13 +260,19 @@ demand: `gh workflow run Nightly`) it:
    clean build of the commit, not of the tree Copilot left. The job passes
    only if the project builds, first time or after its repair; the projects
    that depend on it start only then.
-5. **Publishes.** Only if every job passed, it moves each project's
-   `olympus` branch to what was built (the rebased branch, with its repair
-   if it needed one; the branch is created only for a repair), and then
-   commits the new `hashes.txt` to `main`. That last push is made with a
-   token, so it starts a Build of it, as a final confirmation. Otherwise it
-   fails, says why in its summary, and pushes and changes nothing anywhere:
-   nothing reaches an `olympus` branch unless it has been built from scratch.
+5. **Pushes**, still in the same job, as soon as the project builds, and
+   whether or not the others do: it moves the project's `olympus` branch to
+   what was built (the rebased branch, with its repair if it needed one;
+   the branch is created only when there is something on it). For pal and
+   hacl-pulse it opens (or updates) the pull request from it, and puts it
+   on the merge queue if every commit in it is minimal and Copilot did not
+   have to resolve rebase conflicts. Nothing reaches a repository unless it
+   has been built from scratch.
+6. **Publishes.** Only if every job passed (and pushed), it commits the new
+   `hashes.txt` to `main`, with F*'s nightly noted on its line. That push is
+   made with a token, so it starts a Build of it, as a final confirmation.
+   Otherwise it fails, says why in its summary, and changes nothing:
+   `hashes.txt` always names commits that all build together.
 
 ### Setting it up
 
@@ -267,7 +284,7 @@ belongs to one organization, so pushing needs one per organization:
 * `OLYMPUS_PUSH_TOKEN_FSTARLANG`: a fine-grained personal access token
   (resource owner FStarLang) with "Contents: read and write" on this
   repository and on pal, kuiper, pulse-verified-gc, AlgoStar, hacl-pulse and
-  atlas.
+  atlas, and "Pull requests: read and write" on pal and hacl-pulse.
 * `OLYMPUS_PUSH_TOKEN_PROJECT_EVEREST`: the same (resource owner
   project-everest), on everparse.
 
@@ -285,35 +302,42 @@ themselves.
 
 `workflow_dispatch` takes: `fix` (off to only report), `publish` (off for a
 dry run, which changes nothing), `force` (build even if nothing is newer),
-`fstar_rev` (an F* branch or commit, instead of `master`) and `model`.
+`fstar_rev` (an F* nightly such as `nightly-2026-10-28`, or a branch or a
+commit, instead of the latest nightly; pal and hacl-pulse are only bumped
+to a nightly) and `model`.
 
 ### What the credentials can do
 
 Copilot runs with `--yolo` on the runner, and the builds run arbitrary
 makefiles, so the tokens are kept apart: the repair step has only the Copilot
 token, and `scripts/nightly/fix.sh` hands Copilot nothing but that (no GitHub
-login, no git configuration). The push tokens are used only by the Publish job,
-and only by the commands that push, after everything has been built. Copilot
-never commits or pushes; the workflow does that, after checking the result.
+login, no git configuration). The push tokens are given only to the step
+that pushes a project, after it has been built from scratch, and to the
+Publish job; and only the commands that push (and open pull requests) see
+them. Copilot never commits or pushes; the workflow does that, after
+checking the result.
 
 ### Things to know
 
 * A rebase rewrites the `olympus` branch, so the nightly force-pushes it,
   but with a lease: only if the branch is still where the nightly found it.
   So that the commits recorded in older `hashes.txt` stay fetchable, every
-  commit the branch is moved to (and the one it is moved away from, if it is
-  not already tagged) is tagged `olympus/<date>-<commit>`. Every push is
-  tried as a dry run first: if a branch moved while the nightly ran, nothing
-  is pushed or recorded (each fix is kept as a patch in its
-  `log-fix-<project>` artifact).
+  commit the branch is moved to is tagged after the F* nightly it was built
+  with, `olympus/nightly-2026-10-28` (`.2`, `.3`, ... if a second run of the
+  same nightly pushes another), and the one it is moved away from, if it is
+  not already tagged, `olympus/before-nightly-2026-10-28`. If a branch moved
+  while the nightly ran, that project is not pushed, and nothing is recorded
+  (its fix is kept as a patch in its `log-fix-<project>` artifact).
 * So push to an `olympus` branch only between nightlies, and rebase rather
   than merge: the nightly carries the branch's commits forward.
 * A repair is made on the machine that built the project, in its tree, so
-  its commit exists only there until Publish pushes it.
+  its commit exists only there until its job pushes it.
 * Copilot has no cost cap here. The only limit is 12 hours for one agent, to
   guard against a hung session.
 * A target's job is long: its build, up to 12 hours of Copilot, and a
   build from scratch (`matrix.sh --minutes`).
-* FStar has no `olympus` branch; everparse, pal, hacl-pulse and atlas have none
-  until the first time one of them needs a fix.
+* FStar has no `olympus` branch; everparse and atlas have none until the
+  first time one of them needs a fix, and pal and hacl-pulse have one
+  whenever they have a pull request from the nightly (once it is merged or
+  closed, the next nightly starts from their default branch again).
 * Only the projects are fixed, never F*.

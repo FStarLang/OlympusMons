@@ -18,11 +18,17 @@
 # starts it, the agent resolves the conflicts, and the result must then be
 # a linear history on top of upstream, without conflict markers.
 #
+# Copilot also says what kind of change it made (the Olympus-Change trailer
+# of the commit, see README.md): minimal, or a workaround of a regression in
+# F*. A pull request (pr_project in lib.sh) is put on its merge queue
+# without a review only if all of its changes are minimal.
+#
 # If so, the change is committed *locally*, and the commit is left in
 # $OLYMPUS_NIGHTLY_OUT/<project>.hash. Nothing is pushed here: the same job
 # then builds the commit from scratch (see nightly-project.yml), and only if
-# every project builds does the Publish job push the commits to the
-# `olympus` branches and record them.
+# it builds does push-olympus.sh push it to the project's `olympus` branch
+# (and pull request); only if every project builds does the Publish job
+# record them in hashes.txt.
 #
 # The agent has no credentials but its own, and is told not to use git (but
 # to finish the rebase, if there is one).
@@ -84,7 +90,7 @@ from=$base
 [ "$rebasing" = 1 ] && from=$upstream
 fstar_new=$(hash_of FStar)
 fstar_old=$(git -C "$OLYMPUS_ROOT" show HEAD:hashes.txt 2> /dev/null \
-            | sed -e 's/#.*//' | awk -F: '$1 == "FStar" { print $2 }')
+            | sed -e 's/#.*//' -e 's/[[:space:]]//g' | awk -F: '$1 == "FStar" { print $2 }')
 fstar_old=${fstar_old:-unknown}
 
 # What was already in the tree before Copilot touched it: the failed build's
@@ -94,6 +100,9 @@ git -C "$src" ls-files -o --exclude-standard | sort > "$untracked_before"
 
 # run.sh truncates its log, and the agent will run it.
 cp "$logs/$p.log" "$logs/$p.initial.log"
+# Where the agent says what kind of change it made.
+kind_file=$logs/$p.change-kind
+rm -f "$kind_file"
 
 # Added lines that would make a proof pass by weakening it. Only in the files
 # people write: the generated ones (extracted OCaml and C) are full of
@@ -132,7 +141,7 @@ if [ "$rebasing" = 1 ]; then
   added_by_hand "$(git -C "$src" merge-base "$olympus_old" "$upstream")" "$olympus_old" \
     | grep -E -- "$shortcuts" > "$allowed" || true
   # It stops at the first conflict, for the agent to resolve.
-  if git -C "$src" "${NIGHTLY_GIT_ID[@]}" rebase "$upstream" > "$logs/$p.rebase.log" 2>&1; then
+  if olympus_rebase "$src" "$upstream" > "$logs/$p.rebase.log" 2>&1; then
     msg "$p: the olympus branch rebases cleanly onto $branch now"
   fi
 fi
@@ -248,8 +257,23 @@ Your change will be built again, from scratch, before it is used. If you
 cannot find a fix that you are confident in, change nothing more and say
 why. A wrong fix is worse than none.
 
-When you finish, say what the cause was, what you changed, and whether the
-whole build passed.
+If you changed anything, classify your change, by writing exactly one of
+these words to $kind_file (the one file outside this directory that you may
+write):
+
+  minimal                      an adaptation to an intended change upstream
+                               (a renamed lemma, a new signature, a hint, a
+                               z3rlimit, a small proof step), of the kind a
+                               maintainer would accept without discussion
+  fstar-regression-workaround  a workaround of something that F* should
+                               still do, and does not: a proof that it no
+                               longer finds although nothing it relies on
+                               changed, a bug, a large slowdown
+
+When unsure, it is the second. A minimal change is merged without review.
+
+When you finish, say what the cause was, what you changed, whether the
+whole build passed, and (if you changed anything) the kind of change and why.
 EOF
 }
 
@@ -322,6 +346,12 @@ if git -C "$src" diff --cached --quiet && [ "$rebasing" = 0 ]; then
 fi
 
 run_url=${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY:-FStarLang/OlympusMons}/actions/runs/${GITHUB_RUN_ID:-0}
+kind=$(tr -d '[:space:]' < "$kind_file" 2> /dev/null || true)
+case $kind in
+  minimal|fstar-regression-workaround) ;;
+  *) msg "$p: Copilot did not classify its change (\"$kind\"): taking it to be a workaround"
+     kind=fstar-regression-workaround ;;
+esac
 # When it rebased, the rebased commits may be all there is to it.
 if ! git -C "$src" diff --cached --quiet; then
   git -C "$src" diff --cached --stat | tail -n 20
@@ -332,10 +362,14 @@ The OlympusMons nightly advanced F* to ${fstar_new:0:12} and found that this
 project no longer built. This change was written by the GitHub Copilot CLI
 ($model, autopilot) and checked by building the project against that F*:
 $run_url
+
+Olympus-Change: $kind
 EOF
 fi
+# After a rebase, the nightly bump that advance.sh could not add.
+[ "$rebasing" = 1 ] && bump_commit "$p" "$src"
 new=$(git -C "$src" rev-parse HEAD)
-# Kept alive until the Publish job pushes it.
+# Kept alive until push-olympus.sh pushes it.
 git -C "$src" update-ref refs/olympus/fix "$new"
 git -C "$src" format-patch --stdout "$from..$new" > "$out/$p.fix.patch"
 echo "$new" > "$out/$p.hash"
