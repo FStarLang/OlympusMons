@@ -28,6 +28,21 @@ rm -f "$status" "$diag"
 # even if we never get as far as starting the build.
 : > "$log"
 
+# A project is built against the trees of its dependencies, so they must
+# have built, and (unless NOCHECKOUT=1, when the trees are what they are) at
+# the commits recorded for them.
+for d in $(deps_of "$p"); do
+  dres='not built' drev=''
+  [ -f "$OLYMPUS_WORK/status/$d" ] && read -r dres drev _ < "$OLYMPUS_WORK/status/$d"
+  want=$(hash_of "$d")
+  if [ "$dres" != ok ] || { [ "${NOCHECKOUT:-0}" != 1 ] && [ "$drev" != "$want" ]; }; then
+    echo "[olympus] $t: needs $d built at ${want:0:12}, but its last build is: $dres ${drev:0:12}" \
+      | tee -a "$log" >&2
+    echo "BLOCKED $(hash_of "$p") 0" > "$status"
+    exit 1
+  fi
+done
+
 if [ "$t" = "$p" ] && [ "${NOCHECKOUT:-0}" != 1 ]; then
   # In the log as well as on the console: a checkout that fails (a private
   # repository the runner cannot read, say) must leave the same evidence

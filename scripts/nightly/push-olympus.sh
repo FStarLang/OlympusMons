@@ -4,7 +4,7 @@
 # Move the `olympus` branch of each project to the commit that the nightly
 # built: the `olympus` commits rebased onto the project's default branch (see
 # advance.sh), with Copilot's fix on top if one was needed (<fixed-dir>/
-# <project>.hash, from fix.sh, built from scratch by the Verify job). The
+# <project>.hash, from fix.sh, built from scratch after it). The
 # commits are pushed from the trees they were made in, in $OLYMPUS_WORK/src.
 #
 # A rebase rewrites the branch, so the push is forced, but only with a lease:

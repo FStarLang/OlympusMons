@@ -26,8 +26,17 @@ recorded F* commit.** The projects' own pins of F*, KaRaMeL or Pulse
 | pulse-verified-gc | [FStarLang/pulse-verified-gc](https://github.com/FStarLang/pulse-verified-gc) | the steps of its CI (`verify.yml`) |
 | AlgoStar | [FStarLang/AlgoStar](https://github.com/FStarLang/AlgoStar) | `make -C autoclrs`, as in its CI |
 | hacl-pulse | [FStarLang/hacl-pulse](https://github.com/FStarLang/hacl-pulse) | `make` (lint, verify, extract, compile, stack, test), as in its CI (`ci.yml`) |
+| atlas | [FStarLang/atlas](https://github.com/FStarLang/atlas) | the targets of its CI (`ci.yml`) but the interop tests, which need system services (tftpd, lrzsz); against the everparse and hacl-pulse trees above |
 
 The exact commands are in [`scripts/build/`](scripts/build).
+
+Some projects are built against others: atlas against the trees that the
+everparse and hacl-pulse builds leave (QuackyDucky, LowParse, and
+hacl-pulse's extracted C, checked files and `Hacl.cui`), instead of the
+pins in its `setup.sh`. Such a project is built only after its
+dependencies, and only if they built at their recorded commits. The
+dependencies are in `deps_of` in [`scripts/lib.sh`](scripts/lib.sh), and
+again in the `Makefile` and `nightly.yml`.
 
 When a project is not on its default branch's commit, it is on its
 `olympus` branch, which has the changes needed to build with the recorded
@@ -119,7 +128,7 @@ from scratch on every pull request (except from forks) and on demand
 ```
                       /  FStar-ci   \
                      |   everparse   |
-  Set up  ->  F*  -> |   pal         |  ->  Summary
+  Set up  ->  F*  -> |   pal         |  ->  atlas  ->  Summary
                      |   kuiper      |
                       \  ...        /
 ```
@@ -132,7 +141,8 @@ from scratch on every pull request (except from forks) and on demand
   its own.
 * **F\*** builds F* and installs it as the package that the rest use. It has
   the machine to itself, so it is given every core.
-* One job **per target**, all depending on F* and running concurrently.
+* One job **per target**, all depending on F* and running concurrently;
+  then one per target that depends on other projects (atlas).
 * **Summary** collects the results and fails if any target did not succeed.
 
 Each target therefore has its own line in the run's graph, its own log (the
@@ -145,7 +155,8 @@ reports what it is doing every couple of minutes, so a slow job can be told
 from a stuck one as it happens.
 
 `workflow_dispatch` takes two inputs: `targets`, to build only some of them
-(`gh workflow run Build -f targets=hacl-pulse`), and `clean`, which can be
+(`gh workflow run Build -f targets=hacl-pulse`; a target's dependencies
+are built with it), and `clean`, which can be
 turned off to reuse the trees of the previous run when retrying one project.
 
 The jobs of a run share one build tree (`~/olympus-work` on the runner), so a
@@ -207,37 +218,41 @@ demand: `gh workflow run Nightly`) it:
    is pushed yet). Merge commits are flattened, and commits that upstream
    has taken drop out, so the `olympus` branch stays a few commits on top of
    upstream. A project whose `olympus` branch does not rebase cleanly is not
-   built: its Fix job does the rebase. Nothing is written to `hashes.txt`
-   yet. If nothing is newer, it stops.
-2. **Builds** all of it from scratch, as the Build workflow does: the same
-   job graph, in parallel, with a log per target. It uses a tree
+   built: Copilot does the rebase (below). Nothing is written to
+   `hashes.txt` yet. If nothing is newer, it stops.
+2. **Builds** F*, and then each target in a job of its own
+   ([`nightly-project.yml`](.github/workflows/nightly-project.yml)), from
+   scratch, in parallel, with a log per target. A target that depends on
+   other projects (atlas) waits for their jobs, and is built against them as
+   they finished: repaired, if they needed it. It uses a tree
    (`~/olympus-nightly-work`) and an opam switch (`olympus-nightly`) of its
    own, so a Build can run beside it.
-3. **Triages.** If F* or F*'s own CI fails, it stops: that is for a person,
-   and fixing the projects would be wasted. Otherwise each project that
-   failed (or did not rebase) gets a **Fix** job, in parallel with the
-   others.
-4. **Fixes.** A Fix job runs the [Copilot CLI](https://github.com/github/copilot-cli)
-   (autopilot, Claude Opus 5.5) once, in the tree of the failed build, with
-   the failing log, the F* that changed, and the rules: no `admit`, `assume`,
-   `magic`, `--lax`; no deleted or skipped lemmas or tests; no CI or pin
-   changes. For a project whose `olympus` branch did not rebase cleanly, the
-   job starts the rebase and the agent first resolves its conflicts (and
-   must end with a linear history on top of upstream, without conflict
-   markers). There is no budget and no retry: the agent builds the project
-   as often as it needs to, until the build passes or it gives up. The job
-   then checks that its last build did pass and that the change has none of
-   the shortcuts above, and commits the change **locally**. Nothing is
-   pushed.
-5. **Verifies.** When all the Fix jobs have succeeded, each fixed project is
-   **built again from scratch**, at the commit of its fix: what is recorded
-   is a clean build of the commit, not of the tree Copilot left. (The projects
-   are independent of each other, and the others were already built from
-   scratch against this F*.)
-6. **Publishes.** Only if everything built, it moves each project's `olympus`
-   branch to what was built (the rebased branch, with its fix if it needed
-   one; the branch is created only for a fix), and then commits the new
-   `hashes.txt` to `main`. That last push is made with a
+3. **Repairs**, in the same job, a project that failed (or did not rebase),
+   straight away and without waiting for the others: it runs the
+   [Copilot CLI](https://github.com/github/copilot-cli) (autopilot, Claude
+   Opus 5.5) once, in the tree of the failed build, with the failing log, the
+   F* that changed, and the rules: no `admit`, `assume`, `magic`, `--lax`;
+   no deleted or skipped lemmas or tests; no CI or pin changes; no changes
+   to other projects (a dependency's tree included). For a project whose
+   `olympus` branch did not rebase cleanly, the job starts the rebase and
+   the agent first resolves its conflicts (and must end with a linear
+   history on top of upstream, without conflict markers). There is no
+   budget and no retry: the agent builds the project as often as it needs
+   to, until the build passes or it gives up. The job then checks that its
+   last build did pass and that the change has none of the shortcuts above,
+   and commits the change **locally**. Nothing is pushed. F*'s own CI
+   (FStar-ci) is not repaired: a failure there is for a person. Since
+   repairs start without waiting for it, a broken F* can cost the agents
+   some work that is thrown away.
+4. **Verifies**, still in the same job: the repaired project is **built
+   again from scratch**, at the commit of its repair. What is recorded is a
+   clean build of the commit, not of the tree Copilot left. The job passes
+   only if the project builds, first time or after its repair; the projects
+   that depend on it start only then.
+5. **Publishes.** Only if every job passed, it moves each project's
+   `olympus` branch to what was built (the rebased branch, with its repair
+   if it needed one; the branch is created only for a repair), and then
+   commits the new `hashes.txt` to `main`. That last push is made with a
    token, so it starts a Build of it, as a final confirmation. Otherwise it
    fails, says why in its summary, and pushes and changes nothing anywhere:
    nothing reaches an `olympus` branch unless it has been built from scratch.
@@ -251,7 +266,8 @@ belongs to one organization, so pushing needs one per organization:
   "Copilot Requests" permission, of an account with Copilot.
 * `OLYMPUS_PUSH_TOKEN_FSTARLANG`: a fine-grained personal access token
   (resource owner FStarLang) with "Contents: read and write" on this
-  repository and on pal, kuiper, pulse-verified-gc, AlgoStar and hacl-pulse.
+  repository and on pal, kuiper, pulse-verified-gc, AlgoStar, hacl-pulse and
+  atlas.
 * `OLYMPUS_PUSH_TOKEN_PROJECT_EVEREST`: the same (resource owner
   project-everest), on everparse.
 
@@ -264,7 +280,7 @@ The **Set up** job checks, in seconds, that the secrets exist and that each
 can push to every repository it is for, and fails before anything expensive
 if not. Without `COPILOT_GITHUB_TOKEN` the nightly still runs but only
 reports, and does not publish a result that has failures. The runners need
-Node.js only for the Fix jobs, which install it and the Copilot CLI
+Node.js only for repairs, whose jobs install it and the Copilot CLI
 themselves.
 
 `workflow_dispatch` takes: `fix` (off to only report), `publish` (off for a
@@ -274,7 +290,7 @@ dry run, which changes nothing), `force` (build even if nothing is newer),
 ### What the credentials can do
 
 Copilot runs with `--yolo` on the runner, and the builds run arbitrary
-makefiles, so the tokens are kept apart: the Fix step has only the Copilot
+makefiles, so the tokens are kept apart: the repair step has only the Copilot
 token, and `scripts/nightly/fix.sh` hands Copilot nothing but that (no GitHub
 login, no git configuration). The push tokens are used only by the Publish job,
 and only by the commands that push, after everything has been built. Copilot
@@ -292,10 +308,12 @@ never commits or pushes; the workflow does that, after checking the result.
   `log-fix-<project>` artifact).
 * So push to an `olympus` branch only between nightlies, and rebase rather
   than merge: the nightly carries the branch's commits forward.
-* The Fix jobs run on the machine that built the project, in its tree, so a
-  fix's commit exists only there until Publish pushes it.
+* A repair is made on the machine that built the project, in its tree, so
+  its commit exists only there until Publish pushes it.
 * Copilot has no cost cap here. The only limit is 12 hours for one agent, to
   guard against a hung session.
-* FStar has no `olympus` branch; everparse, pal and hacl-pulse have none
+* A target's job is long: its build, up to 12 hours of Copilot, and a
+  build from scratch (`matrix.sh --minutes`).
+* FStar has no `olympus` branch; everparse, pal, hacl-pulse and atlas have none
   until the first time one of them needs a fix.
 * Only the projects are fixed, never F*.

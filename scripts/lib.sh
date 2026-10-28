@@ -46,7 +46,8 @@ FSTAR_SRC=$OLYMPUS_WORK/fstar-src
 # only Z3 that F* and the projects can use.
 Z3_BIN=$OLYMPUS_WORK/z3
 
-PROJECTS=(FStar everparse pal kuiper pulse-verified-gc AlgoStar hacl-pulse)
+# In an order in which each project comes after its dependencies (deps_of).
+PROJECTS=(FStar everparse pal kuiper pulse-verified-gc AlgoStar hacl-pulse atlas)
 # Every build target, in the order the status table lists them. FStar-ci is
 # F*'s own CI, run in the tree that the FStar target built.
 # shellcheck disable=SC2034  # used by the scripts that source this file
@@ -61,7 +62,18 @@ repo_of () {
     pulse-verified-gc) echo FStarLang/pulse-verified-gc ;;
     AlgoStar)          echo FStarLang/AlgoStar ;;
     hacl-pulse)        echo FStarLang/hacl-pulse ;;
+    atlas)             echo FStarLang/atlas ;;
     *) echo "unknown project: $1" >&2; return 1 ;;
+  esac
+}
+
+# The projects that project $1 is built against, besides F* (which every
+# project is built against): their trees, as their own builds left them. A
+# project is only built once its dependencies have built (see run.sh). The
+# Makefile and .github/workflows/nightly.yml say the same, and must agree.
+deps_of () {
+  case "$1" in
+    atlas) echo everparse hacl-pulse ;;
   esac
 }
 
@@ -159,6 +171,8 @@ timeout_of () {
     # The longest of them: 1h15m-1h21m in the runs so far (it extracts
     # with Custard, compiles the result and runs the C tests).
     hacl-pulse)        echo 240m ;;
+    # About 2h on GitHub's runners, in its own CI.
+    atlas)             echo 240m ;;
     *)                 echo 240m ;;
   esac
 }

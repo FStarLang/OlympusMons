@@ -1,0 +1,165 @@
+# One target of the Nightly (see nightly.yml): build it against the
+# candidate F* (and the candidate commits of its dependencies, with their
+# repairs, if they needed any), and if it fails, have Copilot repair it in
+# the tree that the failed build left, then build the repair from scratch.
+# The job passes exactly when the target builds, with or without a repair; a
+# repair that built is left in $OLYMPUS_WORK/nightly/fixed/<target>.hash, for
+# the targets that depend on it and for the Publish job.
+name: Nightly target
+
+on:
+  workflow_call:
+    inputs:
+      target:
+        type: string
+        required: true
+      minutes:
+        description: The job's time limit (see matrix.sh --minutes).
+        type: number
+        required: true
+      fix:
+        description: Whether to have Copilot repair the target if it fails.
+        type: boolean
+        default: true
+      model:
+        type: string
+        default: claude-opus-5.5
+    secrets:
+      OLYMPUS_GH_TOKEN:
+        required: false
+      COPILOT_GITHUB_TOKEN:
+        required: false
+
+permissions:
+  contents: read
+
+# A called workflow does not inherit the caller's env: as in nightly.yml.
+env:
+  CLEAN: '1'
+  OLYMPUS_WORK_NAME: olympus-nightly-work
+  OLYMPUS_OPAM_SWITCH: olympus-nightly
+  GH_TOKEN: ${{ secrets.OLYMPUS_GH_TOKEN }}
+  OLYMPUS_JOBS: ${{ vars.OLYMPUS_JOBS }}
+
+jobs:
+  target:
+    name: Build and repair
+    runs-on: [self-hosted, linux, x64, olympus]
+    timeout-minutes: ${{ inputs.minutes }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      T: ${{ inputs.target }}
+      FIX: ${{ inputs.fix }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/olympus-runner
+        with:
+          jobs: share
+
+      # The candidate commits, but for the projects that have been repaired
+      # already: this target's dependencies, if it has any.
+      - name: Use the candidate commits
+        run: |
+          mkdir -p "$OLYMPUS_WORK/nightly/fixed"
+          scripts/nightly/apply-fixes.sh "$OLYMPUS_WORK/candidate-hashes.txt" \
+            "$OLYMPUS_WORK/nightly/fixed" "$OLYMPUS_WORK/nightly/hashes-$T.txt"
+          echo "OLYMPUS_HASHES=$OLYMPUS_WORK/nightly/hashes-$T.txt" >> "$GITHUB_ENV"
+
+      - name: Build ${{ inputs.target }}
+        id: build
+        run: |
+          rc=0
+          scripts/run.sh "$T" || rc=$?
+          result=none
+          [ -f "$OLYMPUS_WORK/status/$T" ] && read -r result _ < "$OLYMPUS_WORK/status/$T"
+          echo "result=$result" >> "$GITHUB_OUTPUT"
+          if [ "$rc" != 0 ] && [ "$FIX" = true ] && [ "$result" != BLOCKED ]; then
+            echo "::warning title=$T::does not build with the latest F*; Copilot will try to repair it"
+            exit 0
+          fi
+          exit "$rc"
+
+      - name: Summary
+        if: always()
+        run: scripts/ci/job-summary.sh "$T"
+
+      - name: Collect the log
+        if: always()
+        run: scripts/ci/collect-logs.sh "$T"
+
+      - name: Upload the log
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: log-${{ inputs.target }}
+          path: ci-logs/
+          retention-days: 14
+          if-no-files-found: warn
+
+      - uses: actions/setup-node@v7
+        if: steps.build.outputs.result != 'ok'
+        with:
+          node-version: 22
+
+      - name: Install the Copilot CLI
+        if: steps.build.outputs.result != 'ok'
+        run: |
+          npm install --no-fund --no-audit --prefix "$RUNNER_TEMP/copilot" @github/copilot
+          echo "$RUNNER_TEMP/copilot/node_modules/.bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/copilot/node_modules/.bin/copilot" --version
+
+      # The only step with a secret, and only the Copilot one: the push
+      # token is not available to anything that runs a build or an agent.
+      # Copilot runs until it succeeds or gives up, with no budget; fix.sh
+      # stops it after 12 hours, a guard against a hung session.
+      - name: Repair ${{ inputs.target }}
+        id: fix
+        if: steps.build.outputs.result != 'ok'
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          OLYMPUS_FIX_MODEL: ${{ inputs.model }}
+          OLYMPUS_NIGHTLY_OUT: ${{ github.workspace }}/nightly-out
+        run: scripts/nightly/fix.sh "$T"
+
+      - name: Upload the repair's logs and transcript
+        if: always() && steps.build.outputs.result != 'ok' && steps.build.outcome == 'success'
+        uses: actions/upload-artifact@v7
+        with:
+          name: log-fix-${{ inputs.target }}
+          path: nightly-out/
+          retention-days: 14
+          if-no-files-found: warn
+
+      # The repair is only as good as a build from scratch says.
+      - name: Build the repair from scratch
+        id: verify
+        if: steps.fix.outcome == 'success'
+        run: |
+          scripts/nightly/apply-fixes.sh "$OLYMPUS_HASHES" nightly-out \
+            "$OLYMPUS_WORK/nightly/hashes-$T-fixed.txt"
+          OLYMPUS_HASHES=$OLYMPUS_WORK/nightly/hashes-$T-fixed.txt scripts/run.sh "$T"
+          cp "nightly-out/$T.hash" "$OLYMPUS_WORK/nightly/fixed/"
+
+      - name: Summary of the repair's build
+        if: always() && steps.fix.outcome == 'success'
+        run: scripts/ci/job-summary.sh "$T"
+
+      - name: Collect the repair's build log
+        if: always() && steps.fix.outcome == 'success'
+        env:
+          OLYMPUS_LOG_DEST: ${{ github.workspace }}/ci-logs-verify
+        run: scripts/ci/collect-logs.sh "$T"
+
+      - name: Upload the repair's build log
+        if: always() && steps.fix.outcome == 'success'
+        uses: actions/upload-artifact@v7
+        with:
+          name: log-verify-${{ inputs.target }}
+          path: ci-logs-verify/
+          retention-days: 14
+          if-no-files-found: warn

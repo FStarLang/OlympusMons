@@ -26,6 +26,7 @@ case $result in
   TIMEOUT) icon=':hourglass:' ;;
   FAILED)  icon=':x:' ;;
   CONFLICT) icon=':twisted_rightwards_arrows:' ;;
+  BLOCKED) icon=':no_entry:' ;;
   *)       icon=':heavy_minus_sign:' ;;
 esac
 

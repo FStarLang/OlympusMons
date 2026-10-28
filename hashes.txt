@@ -4,8 +4,8 @@
 # using the F* (with its bundled Pulse and KaRaMeL) built from the recorded
 # FStar commit and the official release of the Z3 that this F* uses by
 # default (see scripts/install-z3.sh). Any F*/KaRaMeL/Pulse/Z3 pins inside
-# the projects themselves are overridden by the OlympusMons build (except
-# that EverParse uses the krml of its own KaRaMeL pin; see README.md).
+# the projects themselves are overridden by the OlympusMons build. Atlas is
+# built against the everparse and hacl-pulse below, rather than its own pins.
 #
 # Format: <project>:<commit>      ('#' starts a comment)
 FStar:285d2038e2e2f865caf57f962c9ddc4c4ca8d709
@@ -15,3 +15,4 @@ kuiper:b5477e22c76982177077899eda4d967611db28fc
 pulse-verified-gc:ff83de91ce45f3ed97e2bc65a8484ac266bb445e
 AlgoStar:14342137601285acb501058863b5d8eb62fb4c53
 hacl-pulse:bc7c41e429c021eb1f9ffb4396697788178fcf0e
+atlas:145acc5619fc25e49fc3874d2f40dbb958badb67

@@ -1,13 +1,16 @@
 # The nightly upgrade (see "The nightly" in README.md): advance F* to the
 # tip of its master and every other project to the tip of its default
 # branch, with its `olympus` branch rebased on top, build everything from
-# scratch, and have Copilot repair whatever
-# stopped building. Once every project builds, record the commits in
-# hashes.txt and push.
+# scratch, and have Copilot repair whatever stopped building. Once every
+# project builds, record the commits in hashes.txt and push.
 #
-#                                       one job per project that failed:
-#   Set up -> F* -> targets -> Triage -> Fix (Copilot, once, no budget) ->
-#       Verify (the fixes, built from scratch) -> Publish (push, record)
+#                    one job per target (nightly-project.yml):
+#   Set up -> F* -> build; if it fails, Copilot repairs it (once, no
+#                   budget) and the repair is built from scratch -> Publish
+#
+# A target starts as soon as F* and its dependencies (deps_of in lib.sh)
+# have built: atlas waits for everparse and hacl-pulse, with their repairs.
+# Its job fails exactly when it does not build, even after a repair.
 #
 # It runs on the same self-hosted runners as the Build workflow, in a tree
 # and an opam switch of its own, so that it does not disturb a Build.
@@ -75,7 +78,7 @@ jobs:
         shell: bash
     outputs:
       go: ${{ steps.go.outputs.go }}
-      matrix: ${{ steps.matrix.outputs.matrix }}
+      minutes: ${{ steps.minutes.outputs.minutes }}
       fix: ${{ steps.tokens.outputs.fix }}
     steps:
       - uses: actions/checkout@v7
@@ -104,6 +107,10 @@ jobs:
 
       - name: Check that every repository can be read
         run: scripts/ci/preflight.sh
+
+      - name: Work out how long each target may take
+        id: minutes
+        run: echo "minutes=$(scripts/ci/matrix.sh --minutes)" >> "$GITHUB_OUTPUT"
 
       # From hashes.txt: the candidate commits do not exist until this step
       # has written them, so OLYMPUS_HASHES only points at them after it.
@@ -156,16 +163,10 @@ jobs:
       - name: Check out every project
         if: steps.go.outputs.go == 'true'
         run: |
-          for p in everparse pal kuiper pulse-verified-gc AlgoStar hacl-pulse; do
+          source scripts/lib.sh
+          for p in "${PROJECTS[@]:1}"; do
             scripts/checkout.sh "$p" || echo "::warning::$p: checkout failed"
           done
-
-      - name: Work out which targets to build
-        id: matrix
-        if: steps.go.outputs.go == 'true'
-        run: |
-          matrix=$(scripts/ci/matrix.sh)
-          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
 
   fstar:
     name: F*
@@ -208,223 +209,121 @@ jobs:
           retention-days: 14
           if-no-files-found: warn
 
-  check:
-    name: ${{ matrix.target }}
+  # One job per target: keep these in step with TARGETS and deps_of in
+  # scripts/lib.sh. A target that does not build, even after Copilot's
+  # repair, fails its job, and the jobs of the targets that depend on it are
+  # skipped.
+
+  # F*'s own tests: a failure is F*'s, not something to repair here.
+  FStar-ci:
+    name: FStar-ci
     needs: [setup, fstar]
-    if: needs.setup.outputs.go == 'true' && needs.setup.outputs.matrix != '[]'
-    runs-on: [self-hosted, linux, x64, olympus]
-    timeout-minutes: ${{ matrix.job_minutes }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include: ${{ fromJSON(needs.setup.outputs.matrix) }}
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
+    if: needs.setup.outputs.go == 'true'
+    uses: ./.github/workflows/nightly-project.yml
+    with:
+      target: FStar-ci
+      minutes: ${{ fromJSON(needs.setup.outputs.minutes)['FStar-ci'] }}
+      fix: false
+      model: ${{ inputs.model || 'claude-opus-5.5' }}
+    secrets: inherit
 
-      - uses: ./.github/actions/olympus-runner
-        with:
-          jobs: share
+  everparse:
+    name: everparse
+    needs: [setup, fstar]
+    if: needs.setup.outputs.go == 'true'
+    uses: ./.github/workflows/nightly-project.yml
+    with:
+      target: everparse
+      minutes: ${{ fromJSON(needs.setup.outputs.minutes)['everparse'] }}
+      fix: ${{ needs.setup.outputs.fix == 'true' }}
+      model: ${{ inputs.model || 'claude-opus-5.5' }}
+    secrets: inherit
 
-      - name: Use the candidate commits
-        run: echo "OLYMPUS_HASHES=$OLYMPUS_WORK/candidate-hashes.txt" >> "$GITHUB_ENV"
+  pal:
+    name: pal
+    needs: [setup, fstar]
+    if: needs.setup.outputs.go == 'true'
+    uses: ./.github/workflows/nightly-project.yml
+    with:
+      target: pal
+      minutes: ${{ fromJSON(needs.setup.outputs.minutes)['pal'] }}
+      fix: ${{ needs.setup.outputs.fix == 'true' }}
+      model: ${{ inputs.model || 'claude-opus-5.5' }}
+    secrets: inherit
 
-      # A target that does not build is the nightly's business to repair,
-      # not a reason to stop: this job passes, and Triage reads the result.
-      - name: Build ${{ matrix.target }}
-        run: |
-          scripts/run.sh '${{ matrix.target }}' \
-            || echo "::warning title=${{ matrix.target }}::does not build with the latest F*; see the log"
+  kuiper:
+    name: kuiper
+    needs: [setup, fstar]
+    if: needs.setup.outputs.go == 'true'
+    uses: ./.github/workflows/nightly-project.yml
+    with:
+      target: kuiper
+      minutes: ${{ fromJSON(needs.setup.outputs.minutes)['kuiper'] }}
+      fix: ${{ needs.setup.outputs.fix == 'true' }}
+      model: ${{ inputs.model || 'claude-opus-5.5' }}
+    secrets: inherit
 
-      - name: Summary
-        if: always()
-        run: scripts/ci/job-summary.sh '${{ matrix.target }}'
+  pulse-verified-gc:
+    name: pulse-verified-gc
+    needs: [setup, fstar]
+    if: needs.setup.outputs.go == 'true'
+    uses: ./.github/workflows/nightly-project.yml
+    with:
+      target: pulse-verified-gc
+      minutes: ${{ fromJSON(needs.setup.outputs.minutes)['pulse-verified-gc'] }}
+      fix: ${{ needs.setup.outputs.fix == 'true' }}
+      model: ${{ inputs.model || 'claude-opus-5.5' }}
+    secrets: inherit
 
-      - name: Collect the log
-        if: always()
-        run: scripts/ci/collect-logs.sh '${{ matrix.target }}'
+  AlgoStar:
+    name: AlgoStar
+    needs: [setup, fstar]
+    if: needs.setup.outputs.go == 'true'
+    uses: ./.github/workflows/nightly-project.yml
+    with:
+      target: AlgoStar
+      minutes: ${{ fromJSON(needs.setup.outputs.minutes)['AlgoStar'] }}
+      fix: ${{ needs.setup.outputs.fix == 'true' }}
+      model: ${{ inputs.model || 'claude-opus-5.5' }}
+    secrets: inherit
 
-      - name: Upload the log
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: log-${{ matrix.target }}
-          path: ci-logs/
-          retention-days: 14
-          if-no-files-found: warn
+  hacl-pulse:
+    name: hacl-pulse
+    needs: [setup, fstar]
+    if: needs.setup.outputs.go == 'true'
+    uses: ./.github/workflows/nightly-project.yml
+    with:
+      target: hacl-pulse
+      minutes: ${{ fromJSON(needs.setup.outputs.minutes)['hacl-pulse'] }}
+      fix: ${{ needs.setup.outputs.fix == 'true' }}
+      model: ${{ inputs.model || 'claude-opus-5.5' }}
+    secrets: inherit
 
-  triage:
-    name: Triage
-    needs: [setup, fstar, check]
-    if: always() && needs.fstar.result == 'success'
-    runs-on: [self-hosted, linux, x64, olympus]
-    timeout-minutes: 15
-    defaults:
-      run:
-        shell: bash
-    outputs:
-      failed: ${{ steps.triage.outputs.failed }}
-      blocked: ${{ steps.triage.outputs.blocked }}
-      reason: ${{ steps.triage.outputs.reason }}
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
-      - uses: ./.github/actions/olympus-runner
-
-      - name: Use the candidate commits
-        run: echo "OLYMPUS_HASHES=$OLYMPUS_WORK/candidate-hashes.txt" >> "$GITHUB_ENV"
-
-      - name: Which targets failed?
-        id: triage
-        run: |
-          {
-            echo '## Build results with the latest F*'
-            echo
-            scripts/status.sh --markdown
-            echo
-          } >> "$GITHUB_STEP_SUMMARY"
-          scripts/nightly/triage.sh
-
-      - name: Summary
-        run: |
-          {
-            if [ '${{ steps.triage.outputs.blocked }}' = true ]; then
-              echo ':no_entry: **Nothing will be recorded:** ${{ steps.triage.outputs.reason }}'
-            elif [ '${{ steps.triage.outputs.failed }}' = '[]' ]; then
-              echo ':white_check_mark: Everything builds.'
-            else
-              echo 'Copilot will try to repair: ${{ steps.triage.outputs.failed }}'
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
-
-  fix:
-    name: Fix ${{ matrix.project }}
-    needs: [setup, triage]
-    if: >-
-      always() && needs.triage.result == 'success' &&
-      needs.triage.outputs.blocked == 'false' &&
-      needs.triage.outputs.failed != '[]' &&
-      needs.setup.outputs.fix == 'true'
-    runs-on: [self-hosted, linux, x64, olympus]
-    # Copilot runs until it succeeds or gives up, with no budget; this limit
-    # (and the 12 hours that fix.sh gives the agent) only guards against a
-    # hung session.
-    timeout-minutes: 800
-    strategy:
-      fail-fast: false
-      matrix:
-        include: ${{ fromJSON(needs.triage.outputs.failed || '[{"project":"none"}]') }}
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
-      - uses: ./.github/actions/olympus-runner
-        with:
-          jobs: share
-
-      - name: Use the candidate commits
-        run: echo "OLYMPUS_HASHES=$OLYMPUS_WORK/candidate-hashes.txt" >> "$GITHUB_ENV"
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-
-      - name: Install the Copilot CLI
-        run: |
-          npm install --no-fund --no-audit --prefix "$RUNNER_TEMP/copilot" @github/copilot
-          echo "$RUNNER_TEMP/copilot/node_modules/.bin" >> "$GITHUB_PATH"
-          "$RUNNER_TEMP/copilot/node_modules/.bin/copilot" --version
-
-      # The only step with a secret, and only the Copilot one: the push
-      # token is not available to anything that runs a build or an agent.
-      - name: Repair ${{ matrix.project }}
-        env:
-          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
-          OLYMPUS_FIX_MODEL: ${{ inputs.model || 'claude-opus-5.5' }}
-          OLYMPUS_NIGHTLY_OUT: ${{ github.workspace }}/nightly-out
-        run: scripts/nightly/fix.sh '${{ matrix.project }}'
-
-      - name: Upload the logs and the transcripts
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: log-fix-${{ matrix.project }}
-          path: nightly-out/
-          retention-days: 14
-          if-no-files-found: warn
-
-  verify:
-    # The fixes are only as good as a build from scratch says: one per
-    # project that Copilot fixed, in parallel. Nothing has been pushed yet.
-    name: Verify ${{ matrix.project }}
-    needs: [setup, triage, fix]
-    if: >-
-      always() && needs.fix.result == 'success' &&
-      needs.triage.outputs.failed != '[]'
-    runs-on: [self-hosted, linux, x64, olympus]
-    timeout-minutes: 240
-    strategy:
-      fail-fast: false
-      matrix:
-        include: ${{ fromJSON(needs.triage.outputs.failed || '[{"project":"none"}]') }}
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
-      - uses: ./.github/actions/olympus-runner
-        with:
-          jobs: share
-
-      - name: Download what was repaired
-        uses: actions/download-artifact@v8
-        with:
-          pattern: log-fix-*
-          path: fixed
-          merge-multiple: true
-
-      - name: Use the candidate commits, with the fixes
-        run: |
-          scripts/nightly/apply-fixes.sh "$OLYMPUS_WORK/candidate-hashes.txt" fixed \
-            "$OLYMPUS_WORK/final-hashes.txt"
-          echo "OLYMPUS_HASHES=$OLYMPUS_WORK/final-hashes.txt" >> "$GITHUB_ENV"
-
-      - name: Build ${{ matrix.project }} from scratch
-        run: scripts/run.sh '${{ matrix.project }}'
-
-      - name: Summary
-        if: always()
-        run: scripts/ci/job-summary.sh '${{ matrix.project }}'
-
-      - name: Collect the log
-        if: always()
-        run: scripts/ci/collect-logs.sh '${{ matrix.project }}'
-
-      - name: Upload the log
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: log-verify-${{ matrix.project }}
-          path: ci-logs/
-          retention-days: 14
-          if-no-files-found: warn
+  atlas:
+    name: atlas
+    needs: [setup, fstar, everparse, hacl-pulse]
+    if: needs.setup.outputs.go == 'true'
+    uses: ./.github/workflows/nightly-project.yml
+    with:
+      target: atlas
+      minutes: ${{ fromJSON(needs.setup.outputs.minutes)['atlas'] }}
+      fix: ${{ needs.setup.outputs.fix == 'true' }}
+      model: ${{ inputs.model || 'claude-opus-5.5' }}
+    secrets: inherit
 
   publish:
     name: Publish
-    needs: [setup, fstar, check, triage, fix, verify]
+    needs:
+      - setup
+      - fstar
+      - FStar-ci
+      - everparse
+      - pal
+      - kuiper
+      - pulse-verified-gc
+      - AlgoStar
+      - hacl-pulse
+      - atlas
     if: always() && needs.setup.outputs.go == 'true'
     runs-on: [self-hosted, linux, x64, olympus]
     timeout-minutes: 30
@@ -432,35 +331,19 @@ jobs:
       run:
         shell: bash
     steps:
-      # What this run can claim. A project that was not fixed, or F* itself
-      # failing, means that what was tried does not work, and so not
-      # recorded.
+      # What this run can claim: everything built (with Copilot's repairs,
+      # built from scratch), or nothing is recorded.
       - name: Does everything build?
-        id: decide
         env:
-          SETUP: ${{ needs.setup.result }}
-          FSTAR: ${{ needs.fstar.result }}
-          CHECK: ${{ needs.check.result }}
-          TRIAGE: ${{ needs.triage.result }}
-          FIX: ${{ needs.fix.result }}
-          VERIFY: ${{ needs.verify.result }}
-          BLOCKED: ${{ needs.triage.outputs.blocked }}
-          REASON: ${{ needs.triage.outputs.reason }}
-          FAILED: ${{ needs.triage.outputs.failed }}
+          NEEDS: ${{ toJSON(needs) }}
         run: |
-          why=()
-          [ "$SETUP" = success ]  || why+=("set-up: $SETUP")
-          [ "$FSTAR" = success ]  || why+=("F*: $FSTAR")
-          [ "$CHECK" = success ]  || [ "$CHECK" = skipped ] || why+=("targets: $CHECK")
-          [ "$TRIAGE" = success ] || why+=("triage: $TRIAGE")
-          [ "$BLOCKED" != true ]  || why+=("$REASON")
-          if [ "${FAILED:-[]}" != '[]' ]; then
-            [ "$FIX" = success ] || why+=("not repaired (repair: $FIX): $FAILED")
-            [ "$VERIFY" = success ] || why+=("the repairs do not build from scratch (verify: $VERIFY)")
-          fi
+          mapfile -t why < <(jq -r 'to_entries[] | select(.value.result != "success")
+                                    | "\(.key): \(.value.result)"' <<< "$NEEDS")
           if [ "${#why[@]}" -gt 0 ]; then
             {
               echo '## :x: Nothing was recorded'
+              echo
+              echo 'Not everything builds (a skipped target is one whose dependencies did not):'
               echo
               printf -- '- %s\n' "${why[@]}"
             } | tee -a "$GITHUB_STEP_SUMMARY"
@@ -478,18 +361,12 @@ jobs:
 
       - uses: ./.github/actions/olympus-runner
 
-      - name: Download what was repaired
-        if: needs.fix.result == 'success'
-        uses: actions/download-artifact@v8
-        with:
-          pattern: log-fix-*
-          path: fixed
-          merge-multiple: true
-
       # Everything has now been built from scratch: move the olympus
-      # branches (rebased, and fixed), then record them. The commit is made first, because it is the one thing
-      # that can still refuse (hashes.txt having moved), and the pushes are
-      # all tried as dry runs before any of them lands.
+      # branches (rebased, and repaired, as the jobs left them in
+      # $OLYMPUS_WORK/nightly/fixed), then record them. The commit is made
+      # first, because it is the one thing that can still refuse (hashes.txt
+      # having moved), and the pushes are all tried as dry runs before any of
+      # them lands.
       - name: Record the commits that were built
         env:
           # Only a run of main can change main.
@@ -500,11 +377,12 @@ jobs:
           OLYMPUS_PUSH_TOKEN_FSTARLANG: ${{ secrets.OLYMPUS_PUSH_TOKEN_FSTARLANG }}
           OLYMPUS_PUSH_TOKEN_PROJECT_EVEREST: ${{ secrets.OLYMPUS_PUSH_TOKEN_PROJECT_EVEREST }}
         run: |
-          mkdir -p fixed
+          fixed=$OLYMPUS_WORK/nightly/fixed
+          mkdir -p "$fixed"
           {
-            PUSH=0 scripts/nightly/publish.sh "$OLYMPUS_WORK/candidate-hashes.txt" fixed "$BASE"
+            PUSH=0 scripts/nightly/publish.sh "$OLYMPUS_WORK/candidate-hashes.txt" "$fixed" "$BASE"
             if [ "$PUSH" = 1 ]; then
-              scripts/nightly/push-olympus.sh "$OLYMPUS_WORK/candidate-hashes.txt" fixed
+              scripts/nightly/push-olympus.sh "$OLYMPUS_WORK/candidate-hashes.txt" "$fixed"
               git push origin HEAD:main
             else
               echo "(not pushing: a dry run, or not a run of main)"

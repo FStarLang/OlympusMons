@@ -15,7 +15,7 @@
 #
 # Under a parallel make, all builds share its job slots.
 
-PROJECTS := everparse pal kuiper pulse-verified-gc AlgoStar hacl-pulse
+PROJECTS := everparse pal kuiper pulse-verified-gc AlgoStar hacl-pulse atlas
 
 .PHONY: all FStar FStar-ci $(PROJECTS) status
 all: FStar FStar-ci $(PROJECTS)
@@ -26,6 +26,9 @@ FStar:
 
 FStar-ci $(PROJECTS): FStar
 	+@scripts/run.sh $@
+
+# Projects built against other projects' trees (deps_of in scripts/lib.sh).
+atlas: everparse hacl-pulse
 
 status:
 	@scripts/status.sh

@@ -17,6 +17,7 @@ icon_of () {
     TIMEOUT) echo ':hourglass:' ;;
     FAILED)  echo ':x:' ;;
     CONFLICT) echo ':twisted_rightwards_arrows:' ;;
+    BLOCKED) echo ':no_entry:' ;;
     *)       echo ':heavy_minus_sign:' ;;
   esac
 }

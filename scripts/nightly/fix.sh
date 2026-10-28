@@ -19,9 +19,10 @@
 # a linear history on top of upstream, without conflict markers.
 #
 # If so, the change is committed *locally*, and the commit is left in
-# $OLYMPUS_NIGHTLY_OUT/<project>.hash. Nothing is pushed here: the Verify job
-# builds every such commit from scratch, and only if all of them pass does
-# the Publish job push them to the `olympus` branches and record them.
+# $OLYMPUS_NIGHTLY_OUT/<project>.hash. Nothing is pushed here: the same job
+# then builds the commit from scratch (see nightly-project.yml), and only if
+# every project builds does the Publish job push the commits to the
+# `olympus` branches and record them.
 #
 # The agent has no credentials but its own, and is told not to use git (but
 # to finish the rebase, if there is one).
@@ -170,6 +171,15 @@ adapting to a change you can read there.
 "
 fi
 
+deps_rule=''
+deps=$(deps_of "$p")
+if [ -n "$deps" ]; then
+  deps_rule="
+  $p is built against the trees of$(for d in $deps; do printf ' %s' "$(src_dir "$d")"; done)
+  (as their own builds left them, and they have been built): read them, but
+  they are other projects, and so read-only too."
+fi
+
 prompt () {
   cat <<EOF
 You are repairing a project in OlympusMons, a collection of F* and Pulse
@@ -214,7 +224,7 @@ fix that. Work from the first error: later ones are often consequences.
 Rules:
 
 - Change files in this directory only. Do not touch $OLYMPUS_ROOT, the F*
-  package or checkout, or any other project.
+  package or checkout, or any other project.$deps_rule
 - Do not weaken what is proved. No admit, assume, magic, unsafe casts,
   --admit_smt_queries, --lax or similar, and do not delete, comment out or
   skip a lemma, a test or a module to make a failure go away. Adding or

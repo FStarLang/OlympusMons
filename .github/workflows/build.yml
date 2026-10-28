@@ -3,14 +3,16 @@
 #
 #                            /  FStar-ci   \
 #                           |   everparse   |
-#   Set up  ->  F*  ->      |   pal         |  ->  Summary
+#   Set up  ->  F*  ->      |   pal         |  ->  atlas  ->  Summary
 #                           |   kuiper      |
 #                            \  ...        /
 #
 # so that each target has its own line in the run's graph, its own log, its
 # own time limit, and its own artifact -- and so that the targets after F*
 # run in parallel, one per self-hosted runner registered on the build
-# machine (see scripts/ci/add-runners.sh, and README.md).
+# machine (see scripts/ci/add-runners.sh, and README.md). The targets that
+# are built against other projects (deps_of in scripts/lib.sh; atlas) come
+# after the others.
 name: Build
 
 on:
@@ -23,6 +25,7 @@ on:
         description: >-
           Which targets to build after F* (space-separated; empty means all):
           FStar-ci everparse pal kuiper pulse-verified-gc AlgoStar hacl-pulse
+          atlas (with what it depends on)
         type: string
         required: false
       clean:
@@ -67,6 +70,7 @@ jobs:
         shell: bash
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
+      dependents: ${{ steps.matrix.outputs.dependents }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -94,7 +98,8 @@ jobs:
       - name: Check out every project
         run: |
           rc=0
-          for p in everparse pal kuiper pulse-verified-gc AlgoStar hacl-pulse; do
+          source scripts/lib.sh
+          for p in "${PROJECTS[@]:1}"; do
             scripts/checkout.sh "$p" || { echo "::warning::$p: checkout failed"; rc=1; }
           done
           [ "$rc" = 0 ] || echo "Leaving the above to the jobs that build them."
@@ -107,8 +112,12 @@ jobs:
           # Unquoted on purpose: TARGETS is a list of target names.
           # shellcheck disable=SC2086
           matrix=$(scripts/ci/matrix.sh $TARGETS)
+          # shellcheck disable=SC2086
+          dependents=$(scripts/ci/matrix.sh --dependents $TARGETS)
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "dependents=$dependents" >> "$GITHUB_OUTPUT"
           echo "Building after F*: $(jq -r '[.[].target] | join(" ")' <<< "$matrix")"
+          echo "Then: $(jq -r '[.[].target] | join(" ")' <<< "$dependents")"
 
       - name: Summary
         if: always()
@@ -209,9 +218,57 @@ jobs:
           retention-days: 14
           if-no-files-found: warn
 
+  dependents:
+    # The targets built against other targets' trees, once those are built
+    # (run.sh refuses to build one whose dependencies did not build).
+    name: ${{ matrix.target }}
+    needs: [setup, fstar, check]
+    if: >-
+      always() && needs.fstar.result == 'success' &&
+      needs.setup.outputs.dependents != '[]'
+    runs-on: [self-hosted, linux, x64, olympus]
+    timeout-minutes: ${{ matrix.job_minutes }}
+    strategy:
+      # One project failing says nothing about the others, and the point of
+      # a run is to learn the state of all of them.
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.setup.outputs.dependents) }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/olympus-runner
+        with:
+          jobs: share
+
+      - name: Build ${{ matrix.target }}
+        run: scripts/run.sh '${{ matrix.target }}'
+
+      - name: Summary
+        if: always()
+        run: scripts/ci/job-summary.sh '${{ matrix.target }}'
+
+      - name: Collect the log
+        if: always()
+        run: scripts/ci/collect-logs.sh '${{ matrix.target }}'
+
+      - name: Upload the log
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: log-${{ matrix.target }}
+          path: ci-logs/
+          retention-days: 14
+          if-no-files-found: warn
+
   summary:
     name: Summary
-    needs: [setup, fstar, check]
+    needs: [setup, fstar, check, dependents]
     if: always() && needs.setup.result != 'skipped'
     runs-on: [self-hosted, linux, x64, olympus]
     timeout-minutes: 15
@@ -257,7 +314,9 @@ jobs:
       - name: Check that every target succeeded
         env:
           MATRIX: ${{ needs.setup.outputs.matrix }}
+          DEPENDENTS: ${{ needs.setup.outputs.dependents }}
         run: |
           # Unquoted on purpose: a list of target names.
           # shellcheck disable=SC2046
-          scripts/ci/check.sh FStar $(jq -r '.[].target' <<< "$MATRIX")
+          scripts/ci/check.sh FStar $(jq -r '.[].target' <<< "$MATRIX") \
+            $(jq -r '.[].target' <<< "$DEPENDENTS")
