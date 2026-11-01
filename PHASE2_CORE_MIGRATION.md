@@ -23,6 +23,12 @@ Short version:
   `master`/`main` were merged. This exposed 4 more checker bugs, fixed in the
   PR (§7.2.1–§7.2.4), plus 2 proofs made fragile or re-checkable (§7.2.5–§7.2.6),
   and needed a few more project workarounds (§7.4).
+* Round 3 (§7.8): F* `master` was merged; no project changes.
+* Round 4 (§7.9): the latest `_phase2_core` (`e44d2dbbff`, including the
+  consolidated match rule). 1 Pulse checker bug was fixed in the PR
+  (`rewrite each` vs match `returns` annotations, §7.9.1). pal moved to
+  `main`, and 13 more proof-robustness commits went into AlgoStar,
+  pulse-verified-gc, kuiper and hacl-pulse.
 * The full clean build of all 8 targets passes.
 
 ---
@@ -31,15 +37,15 @@ Short version:
 
 ### 1.1 Pins (`hashes.txt`, branch `olympus_phase2_core`)
 
-| Project | Before (`main`) | Round 1 | Round 2 (current) |
-|---|---|---|---|
-| FStar | `285d2038e2` (master) | [`b7cd6d4daa`](https://github.com/FStarLang/FStar/commit/b7cd6d4daa19eae8b34f754e961f47abc675db62) | [`6a1679b96e`](https://github.com/FStarLang/FStar/commit/6a1679b96eaecd89639c69dcaf5121ed0b60d6e0) (`_phase2_core`; round 2 `055a40ba30` + master `85d8ab69e0`, see §7.8) |
-| everparse | `56efa51529` | [`071a7d4551`](https://github.com/project-everest/everparse/commit/071a7d4551c299d1a8de2b51452d67fd0722aaca) | [`c44e47f990`](https://github.com/project-everest/everparse/commit/c44e47f9904aa2d30d665d56dcb1c4cc3409e9fb) |
-| pal | `51b8c40fe3` | `51b8c40fe3` (unchanged) | [`58f168f7f1`](https://github.com/FStarLang/pal/commit/58f168f7f1e7e2fff50e348d415276a4edf168d6) (master, unchanged) |
-| kuiper | `b5477e22c7` | [`8487b55cfe`](https://github.com/FStarLang/kuiper/commit/8487b55cfeba4d34ff7e9fa117be58266353e239) | [`d2de7ad970`](https://github.com/FStarLang/kuiper/commit/d2de7ad97098d021d963908342fddfb3717dd6c7) |
-| pulse-verified-gc | `ff83de91ce` | [`589bf2e88e`](https://github.com/FStarLang/pulse-verified-gc/commit/589bf2e88ed03bc489c0b638303d90730fdcb4a7) | [`3ee7803862`](https://github.com/FStarLang/pulse-verified-gc/commit/3ee7803862fec49d76f4c70e24a9cdda991308ab) |
-| AlgoStar | `1434213760` | [`018870fa82`](https://github.com/FStarLang/AlgoStar/commit/018870fa826ccda4ef945eb6763e789c8684a9d5) | [`910f8785b9`](https://github.com/FStarLang/AlgoStar/commit/910f8785b9a8704790f0cb1f01ca2b3a8593d3b0) |
-| hacl-pulse | `bc7c41e429` | [`49c09320c3`](https://github.com/FStarLang/hacl-pulse/commit/49c09320c36cc80638220ee611debf481312df5c) | [`385da8c6eb`](https://github.com/FStarLang/hacl-pulse/commit/385da8c6ebd5c830052b6608c78425715e9c473e) |
+| Project | Before (`main`) | Round 1 | Rounds 2–3 | Round 4 (current, §7.9) |
+|---|---|---|---|---|
+| FStar | `285d2038e2` (master) | [`b7cd6d4daa`](https://github.com/FStarLang/FStar/commit/b7cd6d4daa19eae8b34f754e961f47abc675db62) | [`6a1679b96e`](https://github.com/FStarLang/FStar/commit/6a1679b96eaecd89639c69dcaf5121ed0b60d6e0) (`_phase2_core`; round 2 `055a40ba30` + master `85d8ab69e0`, see §7.8) | [`e8d310d0e1`](https://github.com/FStarLang/FStar/commit/e8d310d0e1a2a8765a4c93c926953fffed0bda56) (`_phase2_core`) |
+| everparse | `56efa51529` | [`071a7d4551`](https://github.com/project-everest/everparse/commit/071a7d4551c299d1a8de2b51452d67fd0722aaca) | [`c44e47f990`](https://github.com/project-everest/everparse/commit/c44e47f9904aa2d30d665d56dcb1c4cc3409e9fb) | `c44e47f990` (unchanged) |
+| pal | `51b8c40fe3` | `51b8c40fe3` (unchanged) | [`58f168f7f1`](https://github.com/FStarLang/pal/commit/58f168f7f1e7e2fff50e348d415276a4edf168d6) (master, unchanged) | [`f5886f7153`](https://github.com/FStarLang/pal/commit/f5886f715367e5c6fbfcdfbc01b0b789a5993c13) (main) |
+| kuiper | `b5477e22c7` | [`8487b55cfe`](https://github.com/FStarLang/kuiper/commit/8487b55cfeba4d34ff7e9fa117be58266353e239) | [`d2de7ad970`](https://github.com/FStarLang/kuiper/commit/d2de7ad97098d021d963908342fddfb3717dd6c7) | [`6dd8f5de14`](https://github.com/FStarLang/kuiper/commit/6dd8f5de142a708b77a3f51b26062c2631769560) |
+| pulse-verified-gc | `ff83de91ce` | [`589bf2e88e`](https://github.com/FStarLang/pulse-verified-gc/commit/589bf2e88ed03bc489c0b638303d90730fdcb4a7) | [`3ee7803862`](https://github.com/FStarLang/pulse-verified-gc/commit/3ee7803862fec49d76f4c70e24a9cdda991308ab) | [`7b99af6598`](https://github.com/FStarLang/pulse-verified-gc/commit/7b99af6598f1023c40e2f8098dbd1c618521019e) |
+| AlgoStar | `1434213760` | [`018870fa82`](https://github.com/FStarLang/AlgoStar/commit/018870fa826ccda4ef945eb6763e789c8684a9d5) | [`910f8785b9`](https://github.com/FStarLang/AlgoStar/commit/910f8785b9a8704790f0cb1f01ca2b3a8593d3b0) | [`3c85d5bd24`](https://github.com/FStarLang/AlgoStar/commit/3c85d5bd246b4f78f9949e1a34f73d9206f7ab2d) |
+| hacl-pulse | `bc7c41e429` | [`49c09320c3`](https://github.com/FStarLang/hacl-pulse/commit/49c09320c36cc80638220ee611debf481312df5c) | [`385da8c6eb`](https://github.com/FStarLang/hacl-pulse/commit/385da8c6ebd5c830052b6608c78425715e9c473e) | [`eb8935ee6b`](https://github.com/FStarLang/hacl-pulse/commit/eb8935ee6b2efd9a1b00dd0e892b74fbefe7364c) |
 
 Round 1 (OlympusMons [`2b8d8c1`](https://github.com/FStarLang/OlympusMons/commit/2b8d8c1e3b4f96b0d55c979638e468783ad2fabe)): each project's
 `olympus_phase2_core` branch was its previously pinned commit plus the commits
@@ -50,32 +56,28 @@ trailer:
 * `minimal`: a genuine fix;
 * `fstar-regression-workaround`: a proof made robust to the new checker.
 
-### 1.2 Final clean build (`make -k -j128 CLEAN=1`)
+### 1.2 Final clean build (`make -k CLEAN=1`; rounds 1–3 `-j128`, round 4 `-j24`)
 
-| Target | Round 1 | Round 2 | Round 3 (current, §7.8) | Result |
-|---|---|---|---|---|
-| FStar | 10m51s | 15m15s | 14m39s | ✅ |
-| FStar-ci | 52m | 1h08m53s | 1h16m00s | ✅ |
-| everparse | 1h35m | 1h55m36s | 2h18m53s | ✅ |
-| pal | 25m | 38m44s | 47m35s | ✅ |
-| kuiper | 1h07m | 1h28m20s | 1h48m26s | ✅ |
-| pulse-verified-gc | 52m | 1h13m12s | 1h20m58s | ✅ |
-| AlgoStar | 17m | 29m00s | 40m23s | ✅ |
-| hacl-pulse | 1h10m | 1h36m36s | 1h55m57s | ✅ |
+| Target | Round 1 | Round 2 | Round 3 | Round 4 (current, §7.9) | Result |
+|---|---|---|---|---|---|
+| FStar | 10m51s | 15m15s | 14m39s | 14m44s | ✅ |
+| FStar-ci | 52m | 1h08m53s | 1h16m00s | 23m28s | ✅ |
+| everparse | 1h35m | 1h55m36s | 2h18m53s | 40m01s† | ✅ |
+| pal | 25m | 38m44s | 47m35s | 19m43s | ✅ |
+| kuiper | 1h07m | 1h28m20s | 1h48m26s | 1h04m47s | ✅ |
+| pulse-verified-gc | 52m | 1h13m12s | 1h20m58s | 30m24s | ✅ |
+| AlgoStar | 17m | 29m00s | 40m23s | 5m07s | ✅ |
+| hacl-pulse | 1h10m | 1h36m36s | 1h55m57s | 1h15m14s | ✅ |
 
 Round-2 and round-3 times are longer. The projects' `master`/`main` grew (e.g. kuiper's
 new TensorCore2D kernels, EverParse's new 3D hash tests), and the machine was
 shared with other jobs; the times were not investigated further.
 
----|---|---|
-| FStar | 10m51s | ✅ |
-| FStar-ci | 52m | ✅ |
-| everparse | 1h35m | ✅ |
-| pal | 25m | ✅ |
-| kuiper | 1h07m | ✅ |
-| pulse-verified-gc | 52m | ✅ |
-| AlgoStar | 17m | ✅ |
-| hacl-pulse | 1h10m | ✅ |
+Round 4 ran on a different, 24-core machine with `OLYMPUS_TIMEOUT=12h`, so its
+times are not comparable with the earlier rounds. †everparse's first run in the
+clean build failed once, in a 3D test (§7.9.4), and passed when re-run
+incrementally; the time shown is the re-run.
+
 
 ---
 
@@ -840,3 +842,76 @@ The PR had no new commits since round 2. Master's 18 new commits are Cherry and 
 FStarLang/FStar#4759 (C precedence), FStarLang/FStar#4765, FStarLang/FStar#4766, FStarLang/FStar#4767 and FStarLang/FStar#4769. The merge was clean. The full clean
 build passes with every project at its round-2 `olympus_phase2_core` commit,
 unchanged; only the F* pin in `hashes.txt` moved.
+
+### 7.9 Round 4: latest `_phase2_core` (`e44d2dbbff`) plus one Pulse fix
+
+F* moved from `6a1679b96e` to
+[`e8d310d0e1`](https://github.com/FStarLang/FStar/commit/e8d310d0e1a2a8765a4c93c926953fffed0bda56)
+([compare](https://github.com/FStarLang/FStar/compare/6a1679b96eaecd89639c69dcaf5121ed0b60d6e0...e8d310d0e1a2a8765a4c93c926953fffed0bda56)).
+First-parent commits:
+
+| Commit | Content |
+|---|---|
+| `a6c758b3b8` | merges F* `master`: Pulse `-model.fst` implementation splits, `ArrayPtr.memcpy` API, Pulse closures, Cherry/Custard work, prelude additions (e.g. `List.Tot.length_acc`) |
+| `85812abf7e` | Core: removes the unsound eta rules, adds `facts_exists`; `close_escaping` builds universe-instantiated existentials |
+| `5b7d2d33f8` | comments |
+| `d340d637bd` | Core: consolidated match rule; the elaborator annotates every un-annotated match with `returns` (`elaborated_match_returns`); arguments are checked against the formal's type |
+| `e44d2dbbff` | drops unused pure lets (e.g. asserts) from branch equations in those annotations |
+| [`e8d310d0e1`](https://github.com/FStarLang/FStar/commit/e8d310d0e1a2a8765a4c93c926953fffed0bda56) | **added in this round**: Pulse `rewrite each` up to match `returns` annotations (§7.9.1) |
+
+F* `master` commits newer than the merge in `a6c758b3b8` were not merged.
+
+#### 7.9.1 Checker bug: Pulse `rewrite each` stopped matching `if`s (EverParse)
+
+* **Symptom:** `CBOR.Pulse.API.Nondet.Rust.fst(262)`: Error 228, `rewrite each` found no occurrence of its pattern.
+* **Cause:** after `d340d637bd`, the same `if` gets a `returns` annotation for whatever type it is elaborated at, so the pattern and the occurrence in the context carry different `returns` types. `visit_and_rewrite` in `Pulse.Checker.AssertWithBinders` compares with `FStar.Reflection.TermEq.term_eq`, which compares `ret_opt` (unlike `U.eq_tm`, which ignores it).
+* **Fix:** `strip_match_returns` erases match `returns` annotations; when the pattern contains any, the pattern and the candidates are compared after stripping.
+* **Test:** `pulse/test/RewriteEachMatchReturns.fst` (fails before, passes after).
+
+#### 7.9.2 Project changes
+
+All commits are `Olympus-Change: fstar-regression-workaround`: proofs made robust by stating facts or adding helper lemmas, with no rlimit or fuel increases. No other goal became unprovable.
+
+* **pal** ([compare](https://github.com/FStarLang/pal/compare/58f168f7f1e7e2fff50e348d415276a4edf168d6...f5886f715367e5c6fbfcdfbc01b0b789a5993c13)): fast-forwarded to `main`, which already adopted master's `-model.fst` split (`Pulse.Lib.C.Array`/`MaybeUninit`; the old layout fails with Error 129 because `friend Pulse.Lib.Reference` is no longer allowed). No new commits.
+* **AlgoStar** ([compare](https://github.com/FStarLang/AlgoStar/compare/910f8785b9a8704790f0cb1f01ca2b3a8593d3b0...3c85d5bd246b4f78f9949e1a34f73d9206f7ab2d)):
+  * `Quickselect.Lemmas`: helper `count_split3`;
+  * `ExtendedGCD.Lemmas`: `abs_mul_nat` and explicit steps;
+  * `Kruskal.Impl`: missing `index_bound wu wv n`.
+
+  Quickselect also fails with `a6c758b3b8` alone (the master merge without the PR's commits), so it was perturbed by master's prelude additions.
+* **pulse-verified-gc** ([compare](https://github.com/FStarLang/pulse-verified-gc/compare/3ee7803862fec49d76f4c70e24a9cdda991308ab...7b99af6598f1023c40e2f8098dbd1c618521019e)): `GC.Spec.Allocator.Lemmas.Part1.alloc_from_block_alloc_in_objects_part1` (lines 605–606) makes its two `objects` unfoldings and the header arithmetic explicit, with a new lemma `enumerated_hd_ge_start`. It now runs at fuel 0, rlimit 10 (was fuel 1, rlimit 25).
+* **kuiper** ([compare](https://github.com/FStarLang/kuiper/compare/d2de7ad97098d021d963908342fddfb3717dd6c7...6dd8f5de142a708b77a3f51b26062c2631769560)):
+  * `GEMM.TensorCore2D.Epilogue:161`: the fade step of the outer loop is proved with local lemmas (`em_fade_comb_tiles_flat`, `_next_row`).
+  * `Sparse.SPMM:1579` (`kf_main`): the loop-exit residue arithmetic moves into small lemmas, and the `tile_mm` slice facts are stated before the call.
+
+  `kf_main`/`kf_residue` still have goals that fail at the first rlimit and pass on F*'s fuel/ifuel retry: Z3 has trouble even with near-trivial facts in this very large context.
+* **hacl-pulse** ([compare](https://github.com/FStarLang/hacl-pulse/compare/385da8c6ebd5c830052b6608c78425715e9c473e...eb8935ee6b2efd9a1b00dd0e892b74fbefe7364c)): seven commits; `dist/` is unchanged.
+
+| File:line | Change |
+|---|---|
+| `Spec.Bignum4:646` | lemma `addw_upd2` keeps `srow` out of the `lemma_eq_intro` goal |
+| `Spec.Bignum51.Window:171` | states `rad*0`, `pow2 0`, `s[0]` and one unfolding of `eval` |
+| `Hacl.AES.GF128:366` | states `nxt / 128 < 2` and `carry == nxt / 128` |
+| `Hacl.Impl.MLKEM.Gen:482` | helper `next_prefix` |
+| `Hacl.Impl.MLDSA.VecRound:411` | generic `upto_step_gen` |
+| `Hacl.Impl.Bignum4:158` | binds the loop counter after the loop (appeared once `Spec.Bignum4` passed) |
+| `Hacl.Hash.SHA3.Sponge:580` | lemma `sz_not_lt` for the loop-exit test (§7.9.3) |
+
+* **everparse:** unchanged; its only failure was §7.9.1.
+
+#### 7.9.3 Z3 ignoring its rlimit (`Hacl.Hash.SHA3.Sponge`)
+
+In the first build, one Z3 process ran for more than 2 hours on `squeeze_block_lanes` query 36 despite `rlimit 300`. This is the same phenomenon as §3.6. Bisecting:
+
+* The query text is byte-identical under `a6c758b3b8` and `e44d2dbbff`, and passes in about 7s when checked alone.
+* `d340d637bd` changes the shape of earlier VCs in the same module (check-against-formal for arguments assumes `SZ.fits (SZ.v r)` once instead of per argument; the two are logically equivalent). That changed Z3 history makes Z3 5.3.0 diverge on goal 6 of query 36.
+* Replaying the logged query stream with `z3-5.3.0` alone reproduces the hang despite `:rlimit`. `--z3refresh` or `--z3seed 1` makes the original file pass.
+
+So this is Z3 variance, not an encoding bug. The workaround states the loop-exit fact directly. A possible Pulse improvement: have `while` add the condition's `Pure` postcondition as a direct hypothesis at loop exit, since today it is reached only through two `reveal`s of an `erased (erased SZ.t)` witness.
+
+#### 7.9.4 Toolchain and process notes
+
+* pal now needs a newer Rust (edition 2024) than Ubuntu's cargo 1.75, plus `rustfmt` for its `format-check` target: `rustup` stable (1.99) with `rustup component add rustfmt`.
+* `OLYMPUS_TIMEOUT=12h` was used on a 24-core machine; the default per-target timeouts assume a larger machine.
+* **EverParse flake:** in the final clean build, `share/everparse/tests/3d/goto_return` failed once with Error 317: `output/GotoReturn.ExternalAPI.fsti.checked` was stale (digest mismatch) when the Custard extraction loaded it. The EverParse sources were unchanged from the first build, where this test passed, and the F* change between the two builds is Pulse-only (§7.9.1). The test passes when run on its own, and the incremental re-run of the whole everparse target passed. Most likely `everparse-3d` races between `--print_in_place` rewriting the generated `.fsti` and checking or extracting it.
+* All project branches are fast-forwards of their round-3 tips; nothing was force-pushed.
