@@ -62,7 +62,6 @@ repo_of () {
     AlgoStar)          echo FStarLang/AlgoStar ;;
     hacl-pulse)        echo FStarLang/hacl-pulse ;;
     # Not a project: the KaRaMeL that EverParse pins (see build/everparse.sh).
-    everparse-karamel) echo FStarLang/karamel ;;
     *) echo "unknown project: $1" >&2; return 1 ;;
   esac
 }

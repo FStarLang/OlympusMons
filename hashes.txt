@@ -9,9 +9,9 @@
 #
 # Format: <project>:<commit>      ('#' starts a comment)
 FStar:aef17bd2152b3c3ba38d80869b7cc16c8ad58382
-everparse:c44e47f9904aa2d30d665d56dcb1c4cc3409e9fb
-pal:f5886f715367e5c6fbfcdfbc01b0b789a5993c13
-kuiper:6dd8f5de142a708b77a3f51b26062c2631769560
-pulse-verified-gc:7b99af6598f1023c40e2f8098dbd1c618521019e
+everparse:dc5b9c863e6bced5b1508ff2b778eaf419661d08
+pal:90399fc22b33a71274044e432ec3150c4bf6fd59
+kuiper:c34976a6ad328700b20bd3d634438ce7c423fcb8
+pulse-verified-gc:3c418dd91f040db6fbca81b0bb5078bd31b147b0
 AlgoStar:3c85d5bd246b4f78f9949e1a34f73d9206f7ab2d
-hacl-pulse:eb8935ee6b2efd9a1b00dd0e892b74fbefe7364c
+hacl-pulse:09ba054b6be8af9b105ce3c0f46f1e91e52b95de

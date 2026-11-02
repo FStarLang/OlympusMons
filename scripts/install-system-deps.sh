@@ -26,7 +26,7 @@ pkgs=(
   # Cloning the private repositories
   gh
   # EverParse's tests (see its Dockerfile and CI)
-  clang cmake gcc-multilib libsqlite3-dev libssl-dev python3-pip
+  clang cmake gcc-multilib g++-multilib libsqlite3-dev libssl-dev python3-pip
   python3-venv
   # apt.llvm.org's installer (below)
   gnupg lsb-release software-properties-common
