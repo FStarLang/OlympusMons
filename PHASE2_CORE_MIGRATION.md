@@ -29,6 +29,8 @@ Short version:
   (`rewrite each` vs match `returns` annotations, §7.9.1). pal moved to
   `main`, and 13 more proof-robustness commits went into AlgoStar,
   pulse-verified-gc, kuiper and hacl-pulse.
+* Round 5 (§7.10): the next `_phase2_core` (`aef17bd215`: F* `master` merged,
+  4 Core commits). No regressions; no project changes.
 * The full clean build of all 8 targets passes.
 
 ---
@@ -37,9 +39,9 @@ Short version:
 
 ### 1.1 Pins (`hashes.txt`, branch `olympus_phase2_core`)
 
-| Project | Before (`main`) | Round 1 | Rounds 2–3 | Round 4 (current, §7.9) |
+| Project | Before (`main`) | Round 1 | Rounds 2–3 | Rounds 4–5 (current, §7.9–§7.10) |
 |---|---|---|---|---|
-| FStar | `285d2038e2` (master) | [`b7cd6d4daa`](https://github.com/FStarLang/FStar/commit/b7cd6d4daa19eae8b34f754e961f47abc675db62) | [`6a1679b96e`](https://github.com/FStarLang/FStar/commit/6a1679b96eaecd89639c69dcaf5121ed0b60d6e0) (`_phase2_core`; round 2 `055a40ba30` + master `85d8ab69e0`, see §7.8) | [`e8d310d0e1`](https://github.com/FStarLang/FStar/commit/e8d310d0e1a2a8765a4c93c926953fffed0bda56) (`_phase2_core`) |
+| FStar | `285d2038e2` (master) | [`b7cd6d4daa`](https://github.com/FStarLang/FStar/commit/b7cd6d4daa19eae8b34f754e961f47abc675db62) | [`6a1679b96e`](https://github.com/FStarLang/FStar/commit/6a1679b96eaecd89639c69dcaf5121ed0b60d6e0) (`_phase2_core`; round 2 `055a40ba30` + master `85d8ab69e0`, see §7.8) | round 4 `e8d310d0e1`; round 5 [`aef17bd215`](https://github.com/FStarLang/FStar/commit/aef17bd2152b3c3ba38d80869b7cc16c8ad58382) (`_phase2_core`) |
 | everparse | `56efa51529` | [`071a7d4551`](https://github.com/project-everest/everparse/commit/071a7d4551c299d1a8de2b51452d67fd0722aaca) | [`c44e47f990`](https://github.com/project-everest/everparse/commit/c44e47f9904aa2d30d665d56dcb1c4cc3409e9fb) | `c44e47f990` (unchanged) |
 | pal | `51b8c40fe3` | `51b8c40fe3` (unchanged) | [`58f168f7f1`](https://github.com/FStarLang/pal/commit/58f168f7f1e7e2fff50e348d415276a4edf168d6) (master, unchanged) | [`f5886f7153`](https://github.com/FStarLang/pal/commit/f5886f715367e5c6fbfcdfbc01b0b789a5993c13) (main) |
 | kuiper | `b5477e22c7` | [`8487b55cfe`](https://github.com/FStarLang/kuiper/commit/8487b55cfeba4d34ff7e9fa117be58266353e239) | [`d2de7ad970`](https://github.com/FStarLang/kuiper/commit/d2de7ad97098d021d963908342fddfb3717dd6c7) | [`6dd8f5de14`](https://github.com/FStarLang/kuiper/commit/6dd8f5de142a708b77a3f51b26062c2631769560) |
@@ -56,18 +58,18 @@ trailer:
 * `minimal`: a genuine fix;
 * `fstar-regression-workaround`: a proof made robust to the new checker.
 
-### 1.2 Final clean build (`make -k CLEAN=1`; rounds 1–3 `-j128`, round 4 `-j24`)
+### 1.2 Final clean build (`make -k CLEAN=1`; rounds 1–3 `-j128`, rounds 4–5 `-j24`)
 
-| Target | Round 1 | Round 2 | Round 3 | Round 4 (current, §7.9) | Result |
-|---|---|---|---|---|---|
-| FStar | 10m51s | 15m15s | 14m39s | 14m44s | ✅ |
-| FStar-ci | 52m | 1h08m53s | 1h16m00s | 23m28s | ✅ |
-| everparse | 1h35m | 1h55m36s | 2h18m53s | 40m01s† | ✅ |
-| pal | 25m | 38m44s | 47m35s | 19m43s | ✅ |
-| kuiper | 1h07m | 1h28m20s | 1h48m26s | 1h04m47s | ✅ |
-| pulse-verified-gc | 52m | 1h13m12s | 1h20m58s | 30m24s | ✅ |
-| AlgoStar | 17m | 29m00s | 40m23s | 5m07s | ✅ |
-| hacl-pulse | 1h10m | 1h36m36s | 1h55m57s | 1h15m14s | ✅ |
+| Target | Round 1 | Round 2 | Round 3 | Round 4 | Round 5 (current, §7.10) | Result |
+|---|---|---|---|---|---|---|
+| FStar | 10m51s | 15m15s | 14m39s | 14m44s | 15m09s | ✅ |
+| FStar-ci | 52m | 1h08m53s | 1h16m00s | 23m28s | 26m21s | ✅ |
+| everparse | 1h35m | 1h55m36s | 2h18m53s | 40m01s† | 1h27m14s | ✅ |
+| pal | 25m | 38m44s | 47m35s | 19m43s | 19m20s | ✅ |
+| kuiper | 1h07m | 1h28m20s | 1h48m26s | 1h04m47s | 1h06m02s | ✅ |
+| pulse-verified-gc | 52m | 1h13m12s | 1h20m58s | 30m24s | 34m51s | ✅ |
+| AlgoStar | 17m | 29m00s | 40m23s | 5m07s | 5m36s | ✅ |
+| hacl-pulse | 1h10m | 1h36m36s | 1h55m57s | 1h15m14s | 1h21m56s‡ | ✅ |
 
 Round-2 and round-3 times are longer. The projects' `master`/`main` grew (e.g. kuiper's
 new TensorCore2D kernels, EverParse's new 3D hash tests), and the machine was
@@ -76,7 +78,9 @@ shared with other jobs; the times were not investigated further.
 Round 4 ran on a different, 24-core machine with `OLYMPUS_TIMEOUT=12h`, so its
 times are not comparable with the earlier rounds. †everparse's first run in the
 clean build failed once, in a 3D test (§7.9.4), and passed when re-run
-incrementally; the time shown is the re-run.
+incrementally; the time shown is the re-run. ‡hacl-pulse verified and
+extracted in round 5's clean build, but its constant-time timing audit failed
+(§7.10); an incremental re-run (tests only, 36s) passed.
 
 
 ---
@@ -915,3 +919,31 @@ So this is Z3 variance, not an encoding bug. The workaround states the loop-exit
 * `OLYMPUS_TIMEOUT=12h` was used on a 24-core machine; the default per-target timeouts assume a larger machine.
 * **EverParse flake:** in the final clean build, `share/everparse/tests/3d/goto_return` failed once with Error 317: `output/GotoReturn.ExternalAPI.fsti.checked` was stale (digest mismatch) when the Custard extraction loaded it. The EverParse sources were unchanged from the first build, where this test passed, and the F* change between the two builds is Pulse-only (§7.9.1). The test passes when run on its own, and the incremental re-run of the whole everparse target passed. Most likely `everparse-3d` races between `--print_in_place` rewriting the generated `.fsti` and checking or extracting it.
 * All project branches are fast-forwards of their round-3 tips; nothing was force-pushed.
+
+### 7.10 Round 5: `_phase2_core` `aef17bd215`
+
+F* moved from `e8d310d0e1` to
+[`aef17bd215`](https://github.com/FStarLang/FStar/commit/aef17bd2152b3c3ba38d80869b7cc16c8ad58382)
+([compare](https://github.com/FStarLang/FStar/compare/e8d310d0e1a2a8765a4c93c926953fffed0bda56...aef17bd2152b3c3ba38d80869b7cc16c8ad58382)).
+First-parent commits:
+
+| Commit | Content |
+|---|---|
+| `d2e8055699` | merges F* `master` up to `b09d608ca5` (6 commits, e.g. `FStar.List.Tot.Base`: monomorphize the higher-order functions; Cherry TRMC) |
+| `766a81b7cd` | Core: support code split into documented submodules |
+| `d8f5c22da2` | doc: consolidated Core typechecking reference |
+| `6e78063079` | Core: pass the scrutinee's type to branch conditions |
+| `aef17bd215` | Core: compute projection types on demand |
+
+The full clean build (`make -k -j24 CLEAN=1`) verifies every project at its
+round-4 `olympus_phase2_core` commit, unchanged; only the F* pin moved. No proof
+failed anywhere.
+
+The one red result was not verification: hacl-pulse's `test_consttime`, a
+wall-clock audit of its constant-time selections, reported one "LEAK" while
+other builds were still loading the machine. The extracted `dist/` is
+byte-identical to the committed one (the same C that passed in round 4), and run
+by hand on the idle machine the audit flagged a different function in one run
+of three and passed the other two. The incremental re-run of the target
+passed. OlympusMons `main` already skips running this audit
+(`TEST_NORUN=test_consttime`, for the same reason).
