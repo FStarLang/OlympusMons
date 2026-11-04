@@ -284,7 +284,9 @@ belongs to one organization, so pushing needs one per organization:
 * `OLYMPUS_PUSH_TOKEN_FSTARLANG`: a fine-grained personal access token
   (resource owner FStarLang) with "Contents: read and write" on this
   repository and on pal, kuiper, pulse-verified-gc, AlgoStar, hacl-pulse and
-  atlas, and "Pull requests: read and write" on pal and hacl-pulse.
+  atlas, and "Pull requests: read and write" on pal and hacl-pulse. (pal
+  and hacl-pulse also need "Allow auto-merge" on, in their settings, so
+  that a pull request can be queued before its checks have passed.)
 * `OLYMPUS_PUSH_TOKEN_PROJECT_EVEREST`: the same (resource owner
   project-everest), on everparse.
 

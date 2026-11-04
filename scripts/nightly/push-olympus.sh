@@ -162,13 +162,27 @@ else
 fi
 rm -f "$body"
 
+# Puts the pull request on the merge queue directly, which works without
+# auto-merge, but (without the rights to bypass the rules) only once its
+# required checks have passed.
+enqueue() {
+  # shellcheck disable=SC2016 # GraphQL variables
+  gh api graphql -f query='mutation($id: ID!) {
+      enqueuePullRequest(input: {pullRequestId: $id}) { clientMutationId } }' \
+    -f id="$(gh pr view "$pr" -R "$repo" --json id --jq .id)" > /dev/null
+}
+
 if [ "$small" = 1 ]; then
+  # With a merge queue, --auto is "merge when ready": it queues the pull
+  # request when its checks pass, but needs "Allow auto-merge" in the
+  # repository's settings.
   if gh pr merge "$pr" -R "$repo" --auto > /dev/null 2>&1 \
-     || gh pr merge "$pr" -R "$repo" --auto --merge; then
+     || gh pr merge "$pr" -R "$repo" --auto --merge > /dev/null 2>&1 \
+     || enqueue; then
     summary "\`$p\`: [#$pr](https://github.com/$repo/pull/$pr) is on the merge queue ($kinds)."
   else
-    echo "::warning title=$p::could not put #$pr on the merge queue"
-    summary "\`$p\`: [#$pr](https://github.com/$repo/pull/$pr) could not be put on the merge queue ($kinds)."
+    echo "::warning title=$p::could not put #$pr on the merge queue (is \"Allow auto-merge\" on in $repo's settings?)"
+    summary "\`$p\`: [#$pr](https://github.com/$repo/pull/$pr) could not be put on the merge queue ($kinds): it needs \"Allow auto-merge\" in the repository's settings (General, Pull Requests)."
   fi
 else
   gh pr merge "$pr" -R "$repo" --disable-auto > /dev/null 2>&1 || true
