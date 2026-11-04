@@ -42,7 +42,8 @@ Short version:
   changes.
 * Round 8 (§7.13): the next `_phase2_core` (`2168b5660f`: Core accepts
   trivial guards where none is allowed; `--compat_pre_core` removed). No
-  regressions; no project changes.
+  regressions locally; CI (now running again) hit an SMT timeout in an
+  AlgoStar test, made robust in 1 AlgoStar commit (§7.13.1).
 * The full clean build of all 8 targets passes.
 
 ---
@@ -58,7 +59,7 @@ Short version:
 | pal | `51b8c40fe3` | `51b8c40fe3` (unchanged) | [`58f168f7f1`](https://github.com/FStarLang/pal/commit/58f168f7f1e7e2fff50e348d415276a4edf168d6) (master, unchanged) | [`f5886f7153`](https://github.com/FStarLang/pal/commit/f5886f715367e5c6fbfcdfbc01b0b789a5993c13) (main) | [`90399fc22b`](https://github.com/FStarLang/pal/commit/90399fc22b33a71274044e432ec3150c4bf6fd59) (= `main`) | (unchanged) | (unchanged) |
 | kuiper | `b5477e22c7` | [`8487b55cfe`](https://github.com/FStarLang/kuiper/commit/8487b55cfeba4d34ff7e9fa117be58266353e239) | [`d2de7ad970`](https://github.com/FStarLang/kuiper/commit/d2de7ad97098d021d963908342fddfb3717dd6c7) | [`6dd8f5de14`](https://github.com/FStarLang/kuiper/commit/6dd8f5de142a708b77a3f51b26062c2631769560) | [`c34976a6ad`](https://github.com/FStarLang/kuiper/commit/c34976a6ad328700b20bd3d634438ce7c423fcb8) | (unchanged) | (unchanged) |
 | pulse-verified-gc | `ff83de91ce` | [`589bf2e88e`](https://github.com/FStarLang/pulse-verified-gc/commit/589bf2e88ed03bc489c0b638303d90730fdcb4a7) | [`3ee7803862`](https://github.com/FStarLang/pulse-verified-gc/commit/3ee7803862fec49d76f4c70e24a9cdda991308ab) | [`7b99af6598`](https://github.com/FStarLang/pulse-verified-gc/commit/7b99af6598f1023c40e2f8098dbd1c618521019e) | [`3c418dd91f`](https://github.com/FStarLang/pulse-verified-gc/commit/3c418dd91f040db6fbca81b0bb5078bd31b147b0) | (unchanged) | (unchanged) |
-| AlgoStar | `1434213760` | [`018870fa82`](https://github.com/FStarLang/AlgoStar/commit/018870fa826ccda4ef945eb6763e789c8684a9d5) | [`910f8785b9`](https://github.com/FStarLang/AlgoStar/commit/910f8785b9a8704790f0cb1f01ca2b3a8593d3b0) | [`3c85d5bd24`](https://github.com/FStarLang/AlgoStar/commit/3c85d5bd246b4f78f9949e1a34f73d9206f7ab2d) | `3c85d5bd24` (unchanged) | (unchanged) | (unchanged) |
+| AlgoStar | `1434213760` | [`018870fa82`](https://github.com/FStarLang/AlgoStar/commit/018870fa826ccda4ef945eb6763e789c8684a9d5) | [`910f8785b9`](https://github.com/FStarLang/AlgoStar/commit/910f8785b9a8704790f0cb1f01ca2b3a8593d3b0) | [`3c85d5bd24`](https://github.com/FStarLang/AlgoStar/commit/3c85d5bd246b4f78f9949e1a34f73d9206f7ab2d) | `3c85d5bd24` (unchanged) | (unchanged) | [`43ddace14a`](https://github.com/FStarLang/AlgoStar/commit/43ddace14a2a25f42207b42f995b49a41782de8b) |
 | hacl-pulse | `bc7c41e429` | [`49c09320c3`](https://github.com/FStarLang/hacl-pulse/commit/49c09320c36cc80638220ee611debf481312df5c) | [`385da8c6eb`](https://github.com/FStarLang/hacl-pulse/commit/385da8c6ebd5c830052b6608c78425715e9c473e) | [`eb8935ee6b`](https://github.com/FStarLang/hacl-pulse/commit/eb8935ee6b2efd9a1b00dd0e892b74fbefe7364c) | [`09ba054b6b`](https://github.com/FStarLang/hacl-pulse/commit/09ba054b6be8af9b105ce3c0f46f1e91e52b95de) | (unchanged) | (unchanged) |
 
 Round 1 (OlympusMons [`2b8d8c1`](https://github.com/FStarLang/OlympusMons/commit/2b8d8c1e3b4f96b0d55c979638e468783ad2fabe)): each project's
@@ -80,7 +81,7 @@ trailer:
 | pal | 25m | 38m44s | 47m35s | 19m43s | 19m20s | 18m25s | 20m25s | 17m30s | ✅ |
 | kuiper | 1h07m | 1h28m20s | 1h48m26s | 1h04m47s | 1h06m02s | 25m38s§ | 1h10m07s | 1h09m57s | ✅ |
 | pulse-verified-gc | 52m | 1h13m12s | 1h20m58s | 30m24s | 34m51s | 30m28s | 30m34s | 28m51s | ✅ |
-| AlgoStar | 17m | 29m00s | 40m23s | 5m07s | 5m36s | 5m26s | 6m35s | 5m35s | ✅ |
+| AlgoStar | 17m | 29m00s | 40m23s | 5m07s | 5m36s | 5m26s | 6m35s | 5m35s‖ | ✅ |
 | hacl-pulse | 1h10m | 1h36m36s | 1h55m57s | 1h15m14s | 1h21m56s‡ | 1h20m32s | 1h24m57s | 1h22m44s | ✅ |
 
 Round-2 and round-3 times are longer. The projects' `master`/`main` grew (e.g. kuiper's
@@ -98,6 +99,8 @@ shown is the clean re-run of kuiper alone with the fix, on an otherwise idle mac
 ¶In round 7's first full clean build (F* `ef5d4c2c82`) everparse failed in
 T6/T6le/T7 (§7.12.1); every other target passed. The column shows the second
 full clean build, with the F* fix `f8e5fff516`.
+‖Round 8's time is for AlgoStar `3c85d5bd24`; with the round-8 fix (§7.13.1),
+a clean rebuild of AlgoStar alone takes 2m47s.
 
 
 ---
@@ -1113,4 +1116,22 @@ F* moved from `f8e5fff516` to
 Project pins are unchanged from round 7. The full clean build
 (`make -k -j24 CLEAN=1`) passes all 8 targets on the first run; no proof
 failed anywhere.
+
+#### 7.13.1 CI: AlgoStar `Heap.ImplTest` (proof robustness)
+
+The CI runners have `llvm-config-20` again, so CI ran for the first time since
+round 5 (run [41758557930](https://github.com/FStarLang/OlympusMons/actions/runs/41758557930)).
+Every job passed except AlgoStar: `CLRS.Ch06.Heap.ImplTest.fst(86)`,
+`assert (Seq.equal s0 l)`, timed out (rlimit 40). It passes locally, but
+`--quake 5/5` showed the module is fragile throughout: the completeness tests
+prove sequence equality and the lemmas' preconditions on the input `s0` in
+contexts with `--fuel 8 --ifuel 4`, after `heapsort` (up to 40/40 rlimit
+units, in `test_heapsort_duplicates`).
+
+[`43ddace14a`](https://github.com/FStarLang/AlgoStar/commit/43ddace14a2a25f42207b42f995b49a41782de8b)
+(`fstar-regression-workaround`): a fuel-free lemma `seq3_eq` replaces the four
+`Seq.equal` asserts; the input facts are asserted right after the array
+writes; the Pulse test functions are checked with `--fuel 1 --ifuel 1`. Every
+query passes `--quake 5/5`; the largest now uses 8.7 units, and the module
+checks in 2.5 min instead of 7.
 
