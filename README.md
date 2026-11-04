@@ -68,7 +68,7 @@ Prerequisites: [opam](https://opam.ocaml.org/), a C toolchain (with 32-bit
 support, for EverParse's tests), GCC 15 as `gcc-15`/`g++-15` (for F*'s
 Cherry tests), clang/LLVM 20 and clang-format 20 (for pal),
 Rust (for pal and EverParse), .NET 10 (for F*'s tests), and the GitHub CLI
-`gh` (logged in) to clone the private repositories. On Ubuntu 24.04,
+`gh` (logged in) to clone the private repositories. On Ubuntu 26.04,
 `sudo scripts/install-system-deps.sh` installs all of them but Rust, which is
 best installed with [rustup](https://rustup.rs).
 
@@ -182,7 +182,7 @@ jobs run at once. **Register one per project** (there are seven jobs after
 F*); with a single runner they queue up and the build takes as long as all of
 them put together.
 
-To set up the machine, with Ubuntu 24.04 and 100 GB of free disk:
+To set up the machine, with Ubuntu 26.04 and 100 GB of free disk:
 
 1. Create a user for the runners, and run `sudo scripts/install-system-deps.sh`
    (from a clone of this repository).
