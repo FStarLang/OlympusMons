@@ -40,6 +40,9 @@ Short version:
   1 checker regression (`trefl` on matches differing only in pattern-variable
   names, EverParse T6/T6le/T7) was fixed in the PR (`f8e5fff516`). No project
   changes.
+* Round 8 (§7.13): the next `_phase2_core` (`2168b5660f`: Core accepts
+  trivial guards where none is allowed; `--compat_pre_core` removed). No
+  regressions; no project changes.
 * The full clean build of all 8 targets passes.
 
 ---
@@ -48,15 +51,15 @@ Short version:
 
 ### 1.1 Pins (`hashes.txt`, branch `olympus_phase2_core`)
 
-| Project | Before (`main`) | Round 1 | Rounds 2–3 | Rounds 4–5 (§7.9–§7.10) | Round 6 (§7.11) | Round 7 (current, §7.12) |
-|---|---|---|---|---|---|---|
-| FStar | `285d2038e2` (master) | [`b7cd6d4daa`](https://github.com/FStarLang/FStar/commit/b7cd6d4daa19eae8b34f754e961f47abc675db62) | [`6a1679b96e`](https://github.com/FStarLang/FStar/commit/6a1679b96eaecd89639c69dcaf5121ed0b60d6e0) (`_phase2_core`; round 2 `055a40ba30` + master `85d8ab69e0`, see §7.8) | round 4 `e8d310d0e1`; round 5 [`aef17bd215`](https://github.com/FStarLang/FStar/commit/aef17bd2152b3c3ba38d80869b7cc16c8ad58382) (`_phase2_core`) | `aef17bd215` (unchanged) | [`f8e5fff516`](https://github.com/FStarLang/FStar/commit/f8e5fff516532114d5387b3c217e9363f86d347c) (`_phase2_core`) |
-| everparse | `56efa51529` | [`071a7d4551`](https://github.com/project-everest/everparse/commit/071a7d4551c299d1a8de2b51452d67fd0722aaca) | [`c44e47f990`](https://github.com/project-everest/everparse/commit/c44e47f9904aa2d30d665d56dcb1c4cc3409e9fb) | `c44e47f990` (unchanged) | [`dc5b9c863e`](https://github.com/project-everest/everparse/commit/dc5b9c863e6bced5b1508ff2b778eaf419661d08) | (unchanged) |
-| pal | `51b8c40fe3` | `51b8c40fe3` (unchanged) | [`58f168f7f1`](https://github.com/FStarLang/pal/commit/58f168f7f1e7e2fff50e348d415276a4edf168d6) (master, unchanged) | [`f5886f7153`](https://github.com/FStarLang/pal/commit/f5886f715367e5c6fbfcdfbc01b0b789a5993c13) (main) | [`90399fc22b`](https://github.com/FStarLang/pal/commit/90399fc22b33a71274044e432ec3150c4bf6fd59) (= `main`) | (unchanged) |
-| kuiper | `b5477e22c7` | [`8487b55cfe`](https://github.com/FStarLang/kuiper/commit/8487b55cfeba4d34ff7e9fa117be58266353e239) | [`d2de7ad970`](https://github.com/FStarLang/kuiper/commit/d2de7ad97098d021d963908342fddfb3717dd6c7) | [`6dd8f5de14`](https://github.com/FStarLang/kuiper/commit/6dd8f5de142a708b77a3f51b26062c2631769560) | [`c34976a6ad`](https://github.com/FStarLang/kuiper/commit/c34976a6ad328700b20bd3d634438ce7c423fcb8) | (unchanged) |
-| pulse-verified-gc | `ff83de91ce` | [`589bf2e88e`](https://github.com/FStarLang/pulse-verified-gc/commit/589bf2e88ed03bc489c0b638303d90730fdcb4a7) | [`3ee7803862`](https://github.com/FStarLang/pulse-verified-gc/commit/3ee7803862fec49d76f4c70e24a9cdda991308ab) | [`7b99af6598`](https://github.com/FStarLang/pulse-verified-gc/commit/7b99af6598f1023c40e2f8098dbd1c618521019e) | [`3c418dd91f`](https://github.com/FStarLang/pulse-verified-gc/commit/3c418dd91f040db6fbca81b0bb5078bd31b147b0) | (unchanged) |
-| AlgoStar | `1434213760` | [`018870fa82`](https://github.com/FStarLang/AlgoStar/commit/018870fa826ccda4ef945eb6763e789c8684a9d5) | [`910f8785b9`](https://github.com/FStarLang/AlgoStar/commit/910f8785b9a8704790f0cb1f01ca2b3a8593d3b0) | [`3c85d5bd24`](https://github.com/FStarLang/AlgoStar/commit/3c85d5bd246b4f78f9949e1a34f73d9206f7ab2d) | `3c85d5bd24` (unchanged) | (unchanged) |
-| hacl-pulse | `bc7c41e429` | [`49c09320c3`](https://github.com/FStarLang/hacl-pulse/commit/49c09320c36cc80638220ee611debf481312df5c) | [`385da8c6eb`](https://github.com/FStarLang/hacl-pulse/commit/385da8c6ebd5c830052b6608c78425715e9c473e) | [`eb8935ee6b`](https://github.com/FStarLang/hacl-pulse/commit/eb8935ee6b2efd9a1b00dd0e892b74fbefe7364c) | [`09ba054b6b`](https://github.com/FStarLang/hacl-pulse/commit/09ba054b6be8af9b105ce3c0f46f1e91e52b95de) | (unchanged) |
+| Project | Before (`main`) | Round 1 | Rounds 2–3 | Rounds 4–5 (§7.9–§7.10) | Round 6 (§7.11) | Round 7 (§7.12) | Round 8 (current, §7.13) |
+|---|---|---|---|---|---|---|---|
+| FStar | `285d2038e2` (master) | [`b7cd6d4daa`](https://github.com/FStarLang/FStar/commit/b7cd6d4daa19eae8b34f754e961f47abc675db62) | [`6a1679b96e`](https://github.com/FStarLang/FStar/commit/6a1679b96eaecd89639c69dcaf5121ed0b60d6e0) (`_phase2_core`; round 2 `055a40ba30` + master `85d8ab69e0`, see §7.8) | round 4 `e8d310d0e1`; round 5 [`aef17bd215`](https://github.com/FStarLang/FStar/commit/aef17bd2152b3c3ba38d80869b7cc16c8ad58382) (`_phase2_core`) | `aef17bd215` (unchanged) | [`f8e5fff516`](https://github.com/FStarLang/FStar/commit/f8e5fff516532114d5387b3c217e9363f86d347c) (`_phase2_core`) | [`2168b5660f`](https://github.com/FStarLang/FStar/commit/2168b5660f749559f43dc4b6136980a60599bff9) (`_phase2_core`) |
+| everparse | `56efa51529` | [`071a7d4551`](https://github.com/project-everest/everparse/commit/071a7d4551c299d1a8de2b51452d67fd0722aaca) | [`c44e47f990`](https://github.com/project-everest/everparse/commit/c44e47f9904aa2d30d665d56dcb1c4cc3409e9fb) | `c44e47f990` (unchanged) | [`dc5b9c863e`](https://github.com/project-everest/everparse/commit/dc5b9c863e6bced5b1508ff2b778eaf419661d08) | (unchanged) | (unchanged) |
+| pal | `51b8c40fe3` | `51b8c40fe3` (unchanged) | [`58f168f7f1`](https://github.com/FStarLang/pal/commit/58f168f7f1e7e2fff50e348d415276a4edf168d6) (master, unchanged) | [`f5886f7153`](https://github.com/FStarLang/pal/commit/f5886f715367e5c6fbfcdfbc01b0b789a5993c13) (main) | [`90399fc22b`](https://github.com/FStarLang/pal/commit/90399fc22b33a71274044e432ec3150c4bf6fd59) (= `main`) | (unchanged) | (unchanged) |
+| kuiper | `b5477e22c7` | [`8487b55cfe`](https://github.com/FStarLang/kuiper/commit/8487b55cfeba4d34ff7e9fa117be58266353e239) | [`d2de7ad970`](https://github.com/FStarLang/kuiper/commit/d2de7ad97098d021d963908342fddfb3717dd6c7) | [`6dd8f5de14`](https://github.com/FStarLang/kuiper/commit/6dd8f5de142a708b77a3f51b26062c2631769560) | [`c34976a6ad`](https://github.com/FStarLang/kuiper/commit/c34976a6ad328700b20bd3d634438ce7c423fcb8) | (unchanged) | (unchanged) |
+| pulse-verified-gc | `ff83de91ce` | [`589bf2e88e`](https://github.com/FStarLang/pulse-verified-gc/commit/589bf2e88ed03bc489c0b638303d90730fdcb4a7) | [`3ee7803862`](https://github.com/FStarLang/pulse-verified-gc/commit/3ee7803862fec49d76f4c70e24a9cdda991308ab) | [`7b99af6598`](https://github.com/FStarLang/pulse-verified-gc/commit/7b99af6598f1023c40e2f8098dbd1c618521019e) | [`3c418dd91f`](https://github.com/FStarLang/pulse-verified-gc/commit/3c418dd91f040db6fbca81b0bb5078bd31b147b0) | (unchanged) | (unchanged) |
+| AlgoStar | `1434213760` | [`018870fa82`](https://github.com/FStarLang/AlgoStar/commit/018870fa826ccda4ef945eb6763e789c8684a9d5) | [`910f8785b9`](https://github.com/FStarLang/AlgoStar/commit/910f8785b9a8704790f0cb1f01ca2b3a8593d3b0) | [`3c85d5bd24`](https://github.com/FStarLang/AlgoStar/commit/3c85d5bd246b4f78f9949e1a34f73d9206f7ab2d) | `3c85d5bd24` (unchanged) | (unchanged) | (unchanged) |
+| hacl-pulse | `bc7c41e429` | [`49c09320c3`](https://github.com/FStarLang/hacl-pulse/commit/49c09320c36cc80638220ee611debf481312df5c) | [`385da8c6eb`](https://github.com/FStarLang/hacl-pulse/commit/385da8c6ebd5c830052b6608c78425715e9c473e) | [`eb8935ee6b`](https://github.com/FStarLang/hacl-pulse/commit/eb8935ee6b2efd9a1b00dd0e892b74fbefe7364c) | [`09ba054b6b`](https://github.com/FStarLang/hacl-pulse/commit/09ba054b6be8af9b105ce3c0f46f1e91e52b95de) | (unchanged) | (unchanged) |
 
 Round 1 (OlympusMons [`2b8d8c1`](https://github.com/FStarLang/OlympusMons/commit/2b8d8c1e3b4f96b0d55c979638e468783ad2fabe)): each project's
 `olympus_phase2_core` branch was its previously pinned commit plus the commits
@@ -67,18 +70,18 @@ trailer:
 * `minimal`: a genuine fix;
 * `fstar-regression-workaround`: a proof made robust to the new checker.
 
-### 1.2 Final clean build (`make -k CLEAN=1`; rounds 1–3 `-j128`, rounds 4–7 `-j24`)
+### 1.2 Final clean build (`make -k CLEAN=1`; rounds 1–3 `-j128`, rounds 4–8 `-j24`)
 
-| Target | Round 1 | Round 2 | Round 3 | Round 4 | Round 5 | Round 6 (§7.11) | Round 7 (current, §7.12) | Result |
-|---|---|---|---|---|---|---|---|---|
-| FStar | 10m51s | 15m15s | 14m39s | 14m44s | 15m09s | 15m01s | 16m19s | ✅ |
-| FStar-ci | 52m | 1h08m53s | 1h16m00s | 23m28s | 26m21s | 23m57s | 25m29s | ✅ |
-| everparse | 1h35m | 1h55m36s | 2h18m53s | 40m01s† | 1h27m14s | 1h23m08s | 1h24m39s¶ | ✅ |
-| pal | 25m | 38m44s | 47m35s | 19m43s | 19m20s | 18m25s | 20m25s | ✅ |
-| kuiper | 1h07m | 1h28m20s | 1h48m26s | 1h04m47s | 1h06m02s | 25m38s§ | 1h10m07s | ✅ |
-| pulse-verified-gc | 52m | 1h13m12s | 1h20m58s | 30m24s | 34m51s | 30m28s | 30m34s | ✅ |
-| AlgoStar | 17m | 29m00s | 40m23s | 5m07s | 5m36s | 5m26s | 6m35s | ✅ |
-| hacl-pulse | 1h10m | 1h36m36s | 1h55m57s | 1h15m14s | 1h21m56s‡ | 1h20m32s | 1h24m57s | ✅ |
+| Target | Round 1 | Round 2 | Round 3 | Round 4 | Round 5 | Round 6 (§7.11) | Round 7 (§7.12) | Round 8 (current, §7.13) | Result |
+|---|---|---|---|---|---|---|---|---|---|
+| FStar | 10m51s | 15m15s | 14m39s | 14m44s | 15m09s | 15m01s | 16m19s | 15m16s | ✅ |
+| FStar-ci | 52m | 1h08m53s | 1h16m00s | 23m28s | 26m21s | 23m57s | 25m29s | 24m14s | ✅ |
+| everparse | 1h35m | 1h55m36s | 2h18m53s | 40m01s† | 1h27m14s | 1h23m08s | 1h24m39s¶ | 1h24m29s | ✅ |
+| pal | 25m | 38m44s | 47m35s | 19m43s | 19m20s | 18m25s | 20m25s | 17m30s | ✅ |
+| kuiper | 1h07m | 1h28m20s | 1h48m26s | 1h04m47s | 1h06m02s | 25m38s§ | 1h10m07s | 1h09m57s | ✅ |
+| pulse-verified-gc | 52m | 1h13m12s | 1h20m58s | 30m24s | 34m51s | 30m28s | 30m34s | 28m51s | ✅ |
+| AlgoStar | 17m | 29m00s | 40m23s | 5m07s | 5m36s | 5m26s | 6m35s | 5m35s | ✅ |
+| hacl-pulse | 1h10m | 1h36m36s | 1h55m57s | 1h15m14s | 1h21m56s‡ | 1h20m32s | 1h24m57s | 1h22m44s | ✅ |
 
 Round-2 and round-3 times are longer. The projects' `master`/`main` grew (e.g. kuiper's
 new TensorCore2D kernels, EverParse's new 3D hash tests), and the machine was
@@ -1095,4 +1098,19 @@ rules (`Tm_abs`, `Tm_arrow`) do. Regression test:
 
 With the fix, the second full clean build (`make -k -j24 CLEAN=1`) passes all 8
 targets, F*'s own CI tests included; no project needed changes.
+
+### 7.13 Round 8: `_phase2_core` `2168b5660f`
+
+F* moved from `f8e5fff516` to
+[`2168b5660f`](https://github.com/FStarLang/FStar/commit/2168b5660f749559f43dc4b6136980a60599bff9)
+([compare](https://github.com/FStarLang/FStar/compare/f8e5fff516532114d5387b3c217e9363f86d347c...2168b5660f749559f43dc4b6136980a60599bff9)):
+
+| Commit | Content |
+|---|---|
+| `78fc86e58a` | Core decides relations without a guard, up to trivial guards: `CoreRel.decide` passes `guard_ok` through to Core again; where no guard is allowed and the relation fails, Core retries with a guard and accepts it if it simplifies to `True` (`Core.Guard.guard_if_trivial`), as Rel's `teq_nosmt` does |
+| `2168b5660f` | removes `--compat_pre_core` and `with_compat_pre_core` (a soundness hole now that Core is trusted); no project uses either |
+
+Project pins are unchanged from round 7. The full clean build
+(`make -k -j24 CLEAN=1`) passes all 8 targets on the first run; no proof
+failed anywhere.
 
