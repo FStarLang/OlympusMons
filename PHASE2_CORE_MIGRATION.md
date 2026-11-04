@@ -1135,3 +1135,7 @@ writes; the Pulse test functions are checked with `--fuel 1 --ifuel 1`. Every
 query passes `--quake 5/5`; the largest now uses 8.7 units, and the module
 checks in 2.5 min instead of 7.
 
+With this fix, CI run
+[41769127681](https://github.com/FStarLang/OlympusMons/actions/runs/41769127681)
+passes every job.
+
