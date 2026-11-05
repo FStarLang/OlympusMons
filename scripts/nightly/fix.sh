@@ -65,6 +65,8 @@ stash_logs () {
   return 0
 }
 trap stash_logs EXIT
+# So that a failure that fail() does not report is not a silent one.
+trap 'echo "::error::fix.sh: \"$BASH_COMMAND\" failed (exit status $?) at line $LINENO" >&2' ERR
 
 fail () {
   msg "$p: $*"
@@ -190,7 +192,9 @@ prepared_hint=''
 prepared=$(for b in $(git -C "$src" for-each-ref --format='%(refname:short)' 'refs/remotes/origin/olympus?*'); do
   mb=$(git -C "$src" merge-base HEAD "$b" 2> /dev/null) || continue
   n=$(git -C "$src" rev-list --count --no-merges "$mb..$b")
-  [ "$n" -gt 0 ] && printf '\n  %-40s %s commit(s) on top of %s' "$b" "$n" "${mb:0:12}"
+  if [ "$n" -gt 0 ]; then
+    printf '\n  %-40s %s commit(s) on top of %s' "$b" "$n" "${mb:0:12}"
+  fi
 done)
 if [ -n "$prepared" ]; then
   prepared_hint="
