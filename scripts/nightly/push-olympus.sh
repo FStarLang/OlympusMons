@@ -139,6 +139,19 @@ body=$(mktemp)
   echo
   git -C "$src" log --no-merges --format='- %h %s (Olympus-Change: %(trailers:key=Olympus-Change,valueonly,separator=%x2C))' "$upstream..$new"
   echo
+  # What each change is for, as its commit message says (the bump says it
+  # in its subject).
+  for c in $(git -C "$src" rev-list --reverse --no-merges "$upstream..$new"); do
+    [[ "$(git -C "$src" log -1 --format=%s "$c")" = "$BUMP_SUBJECT"* ]] && continue
+    msgbody=$(git -C "$src" log -1 --format=%b "$c" | sed '/^Olympus-Change:/d' | cat -s)
+    [ -n "${msgbody//[[:space:]]/}" ] || continue
+    echo "<details open><summary>$(git -C "$src" log -1 --format='%h %s' "$c" | sed 's/&/\&amp;/g; s/</\&lt;/g')</summary>"
+    echo
+    printf '%s\n' "$msgbody"
+    echo
+    echo "</details>"
+    echo
+  done
   if [ "$result" = conflict ]; then
     echo "The previous version of this pull request did not rebase cleanly onto \`$branch\`, and Copilot resolved the conflicts."
     echo

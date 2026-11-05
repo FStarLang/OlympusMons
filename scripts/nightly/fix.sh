@@ -89,6 +89,7 @@ olympus_old=$(rebase_info "$p" olympus)
 from=$base
 [ "$rebasing" = 1 ] && from=$upstream
 fstar_new=$(hash_of FStar)
+fstar_label=$(fstar_nightly)
 fstar_old=$(git -C "$OLYMPUS_ROOT" show HEAD:hashes.txt 2> /dev/null \
             | sed -e 's/#.*//' -e 's/[[:space:]]//g' | awk -F: '$1 == "FStar" { print $2 }')
 fstar_old=${fstar_old:-unknown}
@@ -102,7 +103,9 @@ git -C "$src" ls-files -o --exclude-standard | sort > "$untracked_before"
 cp "$logs/$p.log" "$logs/$p.initial.log"
 # Where the agent says what kind of change it made.
 kind_file=$logs/$p.change-kind
-rm -f "$kind_file"
+# And where it explains it, for the commit message and the pull request.
+summary_file=$logs/$p.change-summary
+rm -f "$kind_file" "$summary_file"
 
 # Added lines that would make a proof pass by weakening it. Only in the files
 # people write: the generated ones (extracted OCaml and C) are full of
@@ -194,7 +197,7 @@ prompt () {
 You are repairing a project in OlympusMons, a collection of F* and Pulse
 projects that are built together against one F*.
 
-Tonight F* was advanced to its latest master, $fstar_new, and the project
+Tonight F* was advanced to ${fstar_label:+the nightly $fstar_label, }$fstar_new, and the project
 $p ($repo, at $base) no longer builds with it. Your job is to change $p, and
 only $p, so that it builds again.
 $rebase_task$fstar_hint
@@ -258,8 +261,8 @@ cannot find a fix that you are confident in, change nothing more and say
 why. A wrong fix is worse than none.
 
 If you changed anything, classify your change, by writing exactly one of
-these words to $kind_file (the one file outside this directory that you may
-write):
+these words to $kind_file (outside this directory, you may write only that
+file and the next one):
 
   minimal                      an adaptation to an intended change upstream
                                (a renamed lemma, a new signature, a hint, a
@@ -271,6 +274,16 @@ write):
                                changed, a bug, a large slowdown
 
 When unsure, it is the second. A minimal change is merged without review.
+
+And explain your change, for the people who maintain $p, in
+$summary_file: plain text (Markdown is fine), lines of at most 72
+characters, at most about 40 lines. It becomes the body of the commit
+message and appears in the pull request, so write it for a reviewer who
+has not seen the build log: for each distinct problem, what broke (the
+error, and the change in F* or Pulse that caused it, as far as you could
+tell) and what you changed to fix it, and why that is the right fix. If
+you resolved rebase conflicts, say how. Do not repeat the diff, and do not
+mention this prompt or the workflow.
 
 When you finish, say what the cause was, what you changed, whether the
 whole build passed, and (if you changed anything) the kind of change and why.
@@ -352,16 +365,26 @@ case $kind in
   *) msg "$p: Copilot did not classify its change (\"$kind\"): taking it to be a workaround"
      kind=fstar-regression-workaround ;;
 esac
+# Copilot's explanation, within bounds. Its last paragraph must not pass for
+# the commit's trailers, which say what kind of change it is.
+explanation=$(sed -e 's/[[:space:]]*$//' -e '/^Olympus-Change:/Id' "$summary_file" 2> /dev/null \
+                | head -c 6000 | head -n 80 | cat -s || true)
+if [ -z "$explanation" ]; then
+  msg "$p: Copilot did not explain its change"
+  explanation="(Copilot did not explain this change.)"
+fi
 # When it rebased, the rebased commits may be all there is to it.
 if ! git -C "$src" diff --cached --quiet; then
   git -C "$src" diff --cached --stat | tail -n 20
   git -C "$src" "${NIGHTLY_GIT_ID[@]}" commit -q -F - <<EOF
-Adapt to F* ${fstar_new:0:12}
+Adapt to F* ${fstar_label:-${fstar_new:0:12}}
 
-The OlympusMons nightly advanced F* to ${fstar_new:0:12} and found that this
-project no longer built. This change was written by the GitHub Copilot CLI
-($model, autopilot) and checked by building the project against that F*:
-$run_url
+$explanation
+
+The OlympusMons nightly advanced F* to ${fstar_label:+$fstar_label, }${fstar_new:0:12}
+and found that this project no longer built. This change was written by
+the GitHub Copilot CLI ($model, autopilot) and checked by building the
+project against that F*: $run_url
 
 Olympus-Change: $kind
 EOF
@@ -382,6 +405,12 @@ else
   summary "\`${new:0:12}\` (on \`$base\`)."
 fi
 summary "Not pushed yet: it is built from scratch next, and pushed to \`$repo\` only if everything works."
+summary ""
+summary "<details open><summary>What Copilot changed, and why ($kind)</summary>"
+summary ""
+summary "$explanation"
+summary ""
+summary "</details>"
 summary ""
 summary '```'
 summary "$(git -C "$src" diff --stat "$from" "$new" | tail -n 30)"

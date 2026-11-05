@@ -251,7 +251,9 @@ demand: `gh workflow run Nightly`) it:
    to, until the build passes or it gives up. The job then checks that its
    last build did pass and that the change has none of the shortcuts above,
    and commits the change **locally**, saying (as Copilot classified it)
-   whether it is minimal. Nothing is pushed yet. F*'s own CI
+   whether it is minimal, with Copilot's explanation of what broke and how
+   it fixed it as the commit message (which the job summary and the pull
+   request show too). Nothing is pushed yet. F*'s own CI
    (FStar-ci) is not repaired: a failure there is for a person. Since
    repairs start without waiting for it, a broken F* can cost the agents
    some work that is thrown away.
