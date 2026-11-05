@@ -183,6 +183,31 @@ adapting to a change you can read there.
 "
 fi
 
+# Fixes that people prepared ahead of time, for changes in F* that were
+# coming, on branches named olympus<something> (fetched by advance.sh).
+prepared_hint=''
+# Those that the tree does not have all of already.
+prepared=$(for b in $(git -C "$src" for-each-ref --format='%(refname:short)' 'refs/remotes/origin/olympus?*'); do
+  mb=$(git -C "$src" merge-base HEAD "$b" 2> /dev/null) || continue
+  n=$(git -C "$src" rev-list --count --no-merges "$mb..$b")
+  [ "$n" -gt 0 ] && printf '\n  %-40s %s commit(s) on top of %s' "$b" "$n" "${mb:0:12}"
+done)
+if [ -n "$prepared" ]; then
+  prepared_hint="
+People sometimes prepare fixes for changes in F* before they land, on
+branches of $repo named olympus<something>. This tree has these:
+$prepared
+
+Before you fix anything yourself, look at what they change
+('git log -p --no-merges <the commit above>..<branch>'): if one of them
+already fixes the error, perhaps because it was made for exactly the change
+in F* that broke the build, take its change, adapted to this tree, rather
+than writing another ('git cherry-pick --no-commit' does not commit). Take
+only what the build needs, and check it as if it were yours: the rules below
+apply to it too. Say in your explanation which branch a change came from.
+"
+fi
+
 deps_rule=''
 deps=$(deps_of "$p")
 if [ -n "$deps" ]; then
@@ -200,7 +225,7 @@ projects that are built together against one F*.
 Tonight F* was advanced to ${fstar_label:+the nightly $fstar_label, }$fstar_new, and the project
 $p ($repo, at $base) no longer builds with it. Your job is to change $p, and
 only $p, so that it builds again.
-$rebase_task$fstar_hint
+$rebase_task$fstar_hint$prepared_hint
 The current directory is the project's tree. It is what the failed build left,
 so a build resumes rather than starting over: files that verified already
 are not checked again.

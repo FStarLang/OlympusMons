@@ -344,4 +344,9 @@ checking the result.
   first time one of them needs a fix, and pal and hacl-pulse have one
   whenever they have a pull request from the nightly (once it is merged or
   closed, the next nightly starts from their default branch again).
+* Fixes for a change in F* that is still to come can be prepared on a
+  branch of the project named `olympus<something>` (such as
+  `olympus_phase2_core`): when the change lands and the project needs a
+  repair, Copilot is pointed at those branches, and takes their changes
+  if they fix the build.
 * Only the projects are fixed, never F*.
