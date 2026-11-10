@@ -5,11 +5,11 @@
 # commit recorded in hashes.txt (or <rev>), detached. CLEAN=1 restores the
 # tree to exactly that commit, discarding everything an earlier build left
 # behind: all untracked and ignored files (build products included, also in
-# F*'s KaRaMeL submodule) and any change to a tracked file. Without CLEAN,
-# a tree with modified tracked files is left alone and the checkout fails,
-# unless FORCE=1. Submodules are not initialized, except for F*'s own
-# KaRaMeL submodule: OlympusMons overrides any F*/KaRaMeL pins made by the
-# downstream projects (but see build/everparse.sh).
+# F*'s submodules) and any change to a tracked file. Without CLEAN, a tree
+# with modified tracked files is left alone and the checkout fails, unless
+# FORCE=1. Submodules are not initialized, except for F*'s own (KaRaMeL,
+# and mimalloc for Cherry): OlympusMons overrides any F*/KaRaMeL pins made
+# by the downstream projects (but see build/everparse.sh).
 #
 # Every operation that talks to GitHub is bounded by $OLYMPUS_NET_TIMEOUT,
 # and git never prompts (see lib.sh), so a repository the runner cannot read
@@ -67,15 +67,15 @@ if [ "${CLEAN:-0}" = 1 ]; then
   git -C "$d" clean -q -xffd
 fi
 if [ "$p" = FStar ]; then
-  # The submodule has a build in it too, and `submodule update` will not
-  # overwrite changes to its tracked files.
-  if [ "${CLEAN:-0}" = 1 ] && [ -e "$d/karamel/.git" ]; then
-    git -C "$d/karamel" reset -q --hard
-  fi
-  git_net -C "$d" submodule update -q --init karamel
-  # git clean does not descend into submodules.
+  # The submodules (KaRaMeL has a build in it too) are checked out, which
+  # `submodule update` will not do over changes to their tracked files, and
+  # git clean does not descend into them.
   if [ "${CLEAN:-0}" = 1 ]; then
-    git -C "$d/karamel" clean -q -xffd
+    git -C "$d" submodule foreach -q 'git reset -q --hard'
+  fi
+  git_net -C "$d" submodule update -q --init
+  if [ "${CLEAN:-0}" = 1 ]; then
+    git -C "$d" submodule foreach -q 'git clean -q -xffd'
   fi
 fi
 msg "$p: at $(git -C "$d" rev-parse --short=12 HEAD)"

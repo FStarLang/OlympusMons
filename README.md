@@ -108,7 +108,7 @@ they are (for instance, while fixing a project), use `make NOCHECKOUT=1
 <project>`; `FORCE=1` discards those changes instead. Builds are
 incremental; `CLEAN=1` restores each tree to exactly the recorded commit --
 discarding changes to tracked files as well as every untracked and ignored
-file, F*'s KaRaMeL submodule included -- and rebuilds the F* package, for a
+file, F*'s submodules included -- and rebuilds the F* package, for a
 build from scratch (do this before committing a new `hashes.txt`). As it
 rebuilds F*, do not use it while other builds are running.
 
