@@ -8,11 +8,11 @@
 # built against the everparse and hacl-pulse below, rather than its own pins.
 #
 # Format: <project>:<commit>      ('#' starts a comment)
-FStar:445af2206bc43908a9cd4badbf365f5d6b79867c  # nightly-2026-11-12
-everparse:60634943d4aefa6ce8dce8df698cdad12a442889
-pal:c0a94f21ad7651aba9b5644cf535445eab7d6119
-kuiper:fb49c680f416dbe6e2f58c9916834bb15477fde5
+FStar:ab135bd289bb296271669669a2cf83274b18d095  # nightly-2026-11-13
+everparse:57ef43b41088e55cf9a685c53d703595d6996a1a
+pal:30d73081365a7507181e862f1949a074b5c77342
+kuiper:625c8561bcfc58b6a193e8ae695ee96167651016
 pulse-verified-gc:81c092a61e39e204b3fb9a2f21d00d43a167bf6c
 AlgoStar:95f66671dd2c0d07c6d5fca4b4fda81319b73102
-hacl-pulse:2e0891138b81d055551787a6ef33954a47aa3628
-atlas:d9a878fcd5db5ed690e16467c753b9786c00d449
+hacl-pulse:07216d3be74aabafcd07f27ade11922d72708b7e
+atlas:b00d3812e8cb321d6f5e7196bfa94edee1c5e511
