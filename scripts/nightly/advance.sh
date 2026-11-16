@@ -71,7 +71,7 @@ fetch_project () {
 
 # The latest F* nightly's tag, the newest release of FStarLang/FStar-nightly.
 latest_nightly () {
-  gh release view -R FStarLang/FStar-nightly --json tagName --jq .tagName 2> /dev/null
+  gh release view -R FStarLang/FStar-nightly --json tagName --jq .tagName 2> /dev/null || true
 }
 
 # The number of the open pull request from the `olympus` branch of
@@ -122,6 +122,7 @@ for p in "${PROJECTS[@]}"; do
       new=$(tip "$repo" "refs/heads/$branch")
     fi
     if [ -z "$new" ]; then
+      [ -n "$nightly" ] || echo "::error::$p: cannot find the latest F* nightly (gh release view -R FStarLang/FStar-nightly failed: is \$GH_TOKEN valid?)" >&2
       echo "$p: cannot find the commit to advance $repo to ($branch)" >&2
       exit 1
     fi

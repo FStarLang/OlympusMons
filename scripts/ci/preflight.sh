@@ -21,7 +21,12 @@ OLYMPUS_NET_TIMEOUT=${OLYMPUS_PREFLIGHT_TIMEOUT:-2m}
 
 if command -v gh > /dev/null; then
   if gh auth status > /dev/null 2>&1; then
-    msg "authenticated to GitHub as $(gh api user --jq .login 2> /dev/null || echo '(unknown)')"
+    if login=$(gh api user --jq .login 2> /dev/null); then
+      msg "authenticated to GitHub as $login"
+    elif [ -n "${GH_TOKEN:-}" ]; then
+      echo "::error::GitHub rejects \$GH_TOKEN (the OLYMPUS_GH_TOKEN secret): it has probably expired or been revoked" >&2
+      exit 1
+    fi
   else
     msg "WARNING: gh is not authenticated and \$GH_TOKEN is $( [ -n "${GH_TOKEN:-}" ] && echo set || echo unset ); private repositories will fail below"
   fi
