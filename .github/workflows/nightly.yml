@@ -68,10 +68,10 @@ env:
   # A tree and an opam switch that the Build workflow does not use.
   OLYMPUS_WORK_NAME: olympus-nightly-work
   OLYMPUS_OPAM_SWITCH: olympus-nightly
-  # Read access to the private project repositories (hacl-pulse); when unset,
-  # the runner's own `gh auth login`. Secrets with more power than that are
-  # given only to the steps that need them.
-  GH_TOKEN: ${{ secrets.OLYMPUS_GH_TOKEN }}
+  # The projects are all public; this only spares the gh API calls (the F*
+  # nightly, open pull requests, ...) the anonymous rate limit. Secrets with
+  # more power than that are given only to the steps that need them.
+  GH_TOKEN: ${{ github.token }}
   OLYMPUS_JOBS: ${{ vars.OLYMPUS_JOBS }}
 
 jobs:

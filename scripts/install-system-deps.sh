@@ -23,7 +23,7 @@ pkgs=(
   build-essential ca-certificates curl dotnet-sdk-10.0 git jq libffi-dev
   libgmp-dev m4 opam pkg-config python-is-python3 python3 rsync time unzip
   wget
-  # Cloning the private repositories
+  # The nightly's GitHub API calls (releases, pull requests)
   gh
   # EverParse's tests (see its Dockerfile and CI)
   clang cmake gcc-multilib libsqlite3-dev libssl-dev python3-pip

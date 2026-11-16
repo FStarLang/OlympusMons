@@ -10,8 +10,9 @@ OLYMPUS_OPAM_SWITCH=${OLYMPUS_OPAM_SWITCH:-olympus}
 JOBS=${JOBS:-$(nproc)}
 
 # Nothing in a build may wait for a human: a build that needs input is a
-# build that hangs until its timeout (as a clone of the private hacl-pulse
-# once did, for eleven hours). Make git and gh fail instead of prompting.
+# build that hangs until its timeout (as a clone of a repository the runner
+# could not read once did, for eleven hours). Make git and gh fail instead
+# of prompting.
 export GIT_TERMINAL_PROMPT=0
 export GIT_ASKPASS=
 export SSH_ASKPASS=
@@ -20,9 +21,8 @@ export GCM_INTERACTIVE=never
 export DEBIAN_FRONTEND=noninteractive
 export OPAMYES=1
 
-# An unset repository secret reaches the build as an empty GH_TOKEN, which
-# gh reports as a bad credential rather than falling back to the runner's
-# own `gh auth login`. Treat empty as absent.
+# gh reports an empty GH_TOKEN as a bad credential rather than falling back
+# to `gh auth login` (or to no credentials). Treat empty as absent.
 [ -z "${GH_TOKEN:-}" ] && unset GH_TOKEN
 [ -z "${GITHUB_TOKEN:-}" ] && unset GITHUB_TOKEN
 
@@ -252,27 +252,17 @@ timeout_of () {
   esac
 }
 
-# git, authenticating HTTPS through the GitHub CLI when it is available
-# (some of the repositories are private).
-if command -v gh > /dev/null; then
-  GIT_AUTH=(git -c credential.helper=
-            -c 'credential.helper=!gh auth git-credential')
-else
-  GIT_AUTH=(git)
-fi
-
-git_auth () { "${GIT_AUTH[@]}" "$@"; }
-
-# git_auth for an operation that talks to GitHub, bounded by
-# $OLYMPUS_NET_TIMEOUT. Without this, a repository the runner cannot read (a
-# missing or expired token for a private one) blocks the build until the
-# job's own timeout, with nothing in the log to say which repository it was.
+# git for an operation that talks to GitHub, bounded by
+# $OLYMPUS_NET_TIMEOUT. Without this, a repository the runner cannot read
+# blocks the build until the job's own timeout, with nothing in the log to
+# say which repository it was. The repositories are all public, so this is
+# without credentials (pushes have their own: see git_push_to).
 git_net () {
   local rc=0
-  timeout -k 30s "$OLYMPUS_NET_TIMEOUT" "${GIT_AUTH[@]}" "$@" || rc=$?
+  timeout -k 30s "$OLYMPUS_NET_TIMEOUT" git -c credential.helper= "$@" || rc=$?
   if [ "$rc" = 124 ] || [ "$rc" = 137 ]; then
     echo "git $1 took longer than $OLYMPUS_NET_TIMEOUT and was killed;" \
-         "the runner is probably unable to authenticate to GitHub" >&2
+         "is the repository still public, and is GitHub reachable?" >&2
   fi
   return "$rc"
 }
@@ -295,7 +285,7 @@ base_env () {
   export CHERRY_CC=gcc-15 CHERRY_CXX=g++-15
   # Builds must succeed without proof recovery or other leniency.
   unset OTHERFLAGS FSTAR_EXE FSTAR_HOME FSTAR_ROOT KRML_EXE KRML_HOME PULSE_ROOT
-  # A GitHub token in the environment (e.g. in CI) is only for checkout.sh.
+  # A GitHub token in the environment (e.g. in CI) is only for the scripts.
   unset GH_TOKEN GITHUB_TOKEN
 }
 

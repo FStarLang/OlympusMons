@@ -30,8 +30,7 @@ if [ ! -d "$d/.git" ]; then
   # would make every later run take this branch and fail the same way.
   if ! git_net clone -q "$url" "$d"; then
     rm -rf "$d"
-    echo "$p: cannot clone $url (is \$GH_TOKEN set, and does it grant" \
-         "read access to $(repo_of "$p")?)" >&2
+    echo "$p: cannot clone $url (is $(repo_of "$p") still public?)" >&2
     exit 1
   fi
 fi

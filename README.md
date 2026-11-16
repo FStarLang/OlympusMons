@@ -67,8 +67,8 @@ of another Z3 makes the build fail rather than silently use another Z3.
 Prerequisites: [opam](https://opam.ocaml.org/), a C toolchain (with 32-bit
 support, for EverParse's tests), GCC 15 as `gcc-15`/`g++-15` (for F*'s
 Cherry tests), clang/LLVM 20 and clang-format 20 (for pal),
-Rust (for pal and EverParse), .NET 10 (for F*'s tests), and the GitHub CLI
-`gh` (logged in) to clone the private repositories. On Ubuntu 26.04,
+Rust (for pal and EverParse), and .NET 10 (for F*'s tests); the nightly also
+needs the GitHub CLI `gh`. On Ubuntu 26.04,
 `sudo scripts/install-system-deps.sh` installs all of them but Rust, which is
 best installed with [rustup](https://rustup.rs).
 
@@ -198,12 +198,10 @@ To set up the machine, with Ubuntu 26.04 and 100 GB of free disk:
    service, so they come back after a reboot. It is safe to re-run: runners
    that are already configured are left alone (and restarted if they are
    down). `--remove` unregisters the ones it created.
-4. Give the builds read access to the private projects (hacl-pulse): either
-   store a fine-grained personal access token (resource owner FStarLang,
-   repository access to FStarLang/hacl-pulse only, permission "Contents:
-   read-only") as the repository secret `OLYMPUS_GH_TOKEN`, or run `gh auth
-   login` as the runners' user. The **Set up** job checks this in seconds and
-   says so plainly; a project the runners cannot read fails at once, rather
+4. Nothing else: the projects are all public, so the builds clone them
+   without credentials, and the gh API calls use the workflow's own
+   `GITHUB_TOKEN`. The **Set up** job checks in seconds that the runners can
+   read every repository; a project they cannot read fails at once, rather
    than hanging until its job runs out of time.
 
 The opam switch is created (in the runner user's `~/.opam`) by the first
@@ -319,7 +317,9 @@ login, no git configuration). The push tokens are given only to the step
 that pushes a project, after it has been built from scratch, and to the
 Publish job; and only the commands that push (and open pull requests) see
 them. Copilot never commits or pushes; the workflow does that, after
-checking the result.
+checking the result. Every step has the workflow's `GITHUB_TOKEN`, which
+can only read this repository, for its gh API calls; the build itself does
+not (`base_env` unsets it).
 
 ### Things to know
 

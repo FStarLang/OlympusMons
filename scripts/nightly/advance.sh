@@ -122,7 +122,7 @@ for p in "${PROJECTS[@]}"; do
       new=$(tip "$repo" "refs/heads/$branch")
     fi
     if [ -z "$new" ]; then
-      [ -n "$nightly" ] || echo "::error::$p: cannot find the latest F* nightly (gh release view -R FStarLang/FStar-nightly failed: is \$GH_TOKEN valid?)" >&2
+      [ -n "$nightly" ] || echo "::error::$p: cannot find the latest F* nightly (gh release view -R FStarLang/FStar-nightly failed)" >&2
       echo "$p: cannot find the commit to advance $repo to ($branch)" >&2
       exit 1
     fi

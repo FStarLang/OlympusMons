@@ -50,9 +50,9 @@ env:
   # Unless a workflow_dispatch asks otherwise, every checkout discards its
   # build products, so that builds are from scratch.
   CLEAN: ${{ (github.event_name == 'workflow_dispatch' && !inputs.clean) && '0' || '1' }}
-  # Read access to the private project repositories (hacl-pulse). When this
-  # secret is unset, the runner's own `gh auth login` is used instead.
-  GH_TOKEN: ${{ secrets.OLYMPUS_GH_TOKEN }}
+  # The projects are all public; this only spares the gh API calls the
+  # anonymous rate limit.
+  GH_TOKEN: ${{ github.token }}
   # The number of parallel jobs (default: a share of the machine's cores).
   OLYMPUS_JOBS: ${{ vars.OLYMPUS_JOBS }}
 

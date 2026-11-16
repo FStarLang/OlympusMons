@@ -35,8 +35,6 @@ on:
         type: boolean
         default: false
     secrets:
-      OLYMPUS_GH_TOKEN:
-        required: false
       COPILOT_GITHUB_TOKEN:
         required: false
       OLYMPUS_PUSH_TOKEN_FSTARLANG:
@@ -52,7 +50,7 @@ env:
   CLEAN: '1'
   OLYMPUS_WORK_NAME: olympus-nightly-work
   OLYMPUS_OPAM_SWITCH: olympus-nightly
-  GH_TOKEN: ${{ secrets.OLYMPUS_GH_TOKEN }}
+  GH_TOKEN: ${{ github.token }}
   OLYMPUS_JOBS: ${{ vars.OLYMPUS_JOBS }}
 
 jobs:

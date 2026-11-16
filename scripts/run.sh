@@ -44,7 +44,7 @@ for d in $(deps_of "$p"); do
 done
 
 if [ "$t" = "$p" ] && [ "${NOCHECKOUT:-0}" != 1 ]; then
-  # In the log as well as on the console: a checkout that fails (a private
+  # In the log as well as on the console: a checkout that fails (a
   # repository the runner cannot read, say) must leave the same evidence
   # behind as a build that fails.
   if ! "$OLYMPUS_ROOT/scripts/checkout.sh" "$p" 2>&1 | tee -a "$log" >&2; then
