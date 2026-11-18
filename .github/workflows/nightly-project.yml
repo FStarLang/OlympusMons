@@ -52,8 +52,9 @@ env:
   OLYMPUS_JOBS: ${{ vars.OLYMPUS_JOBS }}
   # The OlympusMons GitHub App, whose installation tokens push (see "The
   # nightly" in README.md); its private key is the OLYMPUS_APP_PRIVATE_KEY
-  # secret.
-  OLYMPUS_APP_CLIENT_ID: Iv23liuQcluxh5CpjSy
+  # secret. (Not its client ID, which create-github-app-token prefers but
+  # GitHub rejects when making an installation token for an organization.)
+  OLYMPUS_APP_ID: 5823841
 
 jobs:
   target:
@@ -189,7 +190,7 @@ jobs:
         continue-on-error: true
         uses: actions/create-github-app-token@v3
         with:
-          client-id: ${{ env.OLYMPUS_APP_CLIENT_ID }}
+          app-id: ${{ env.OLYMPUS_APP_ID }}
           private-key: ${{ secrets.OLYMPUS_APP_PRIVATE_KEY }}
           owner: FStarLang
 
@@ -199,7 +200,7 @@ jobs:
         continue-on-error: true
         uses: actions/create-github-app-token@v3
         with:
-          client-id: ${{ env.OLYMPUS_APP_CLIENT_ID }}
+          app-id: ${{ env.OLYMPUS_APP_ID }}
           private-key: ${{ secrets.OLYMPUS_APP_PRIVATE_KEY }}
           owner: project-everest
 

@@ -288,7 +288,7 @@ change what it may do:
   (everparse). pal and hacl-pulse also need "Allow auto-merge" on, in their
   settings, so that a pull request can be queued before its checks have
   passed.
-* Its client ID is `OLYMPUS_APP_CLIENT_ID` in
+* Its (numeric) app ID is `OLYMPUS_APP_ID` in
   [`nightly.yml`](.github/workflows/nightly.yml) and
   [`nightly-project.yml`](.github/workflows/nightly-project.yml), and a
   private key of it is the repository secret `OLYMPUS_APP_PRIVATE_KEY`

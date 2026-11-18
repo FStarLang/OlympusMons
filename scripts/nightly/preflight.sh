@@ -42,6 +42,10 @@ git -C "$probe" -c user.name=probe -c user.email=probe@example.com commit -q --a
 can_push () {
   local repo=$1 var
   var=$(push_token_var_of "$repo") || { echo "  $repo: no push token for its organization"; return 1; }
+  if [ -z "${!var:-}" ]; then
+    echo "  $repo: \$$var is empty (could its GitHub App token not be made? See the step that makes it)"
+    return 1
+  fi
   if ! git_push_to "$repo" "$probe" --dry-run -- HEAD:refs/heads/olympus-nightly-probe > /dev/null 2>&1; then
     echo "  $repo: cannot push with \$$var (is the GitHub App installed on ${repo%%/*}, with access to $repo and \"Contents: read and write\"?)"
     return 1
