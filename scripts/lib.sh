@@ -89,9 +89,10 @@ hash_of () {
   echo "$h"
 }
 
-# The secret that can push to repository $1 (owner/name): a token has one
-# resource owner, so there is one per organization (see "The nightly" in
-# README.md). Prints the name of the variable that holds it.
+# The token that can push to repository $1 (owner/name): a token belongs to
+# one organization, so there is one per organization (in CI, an installation
+# token of the OlympusMons GitHub App: see "The nightly" in README.md).
+# Prints the name of the variable that holds it.
 push_token_var_of () {
   case "${1%%/*}" in
     FStarLang)        echo OLYMPUS_PUSH_TOKEN_FSTARLANG ;;

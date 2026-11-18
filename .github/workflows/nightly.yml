@@ -73,6 +73,10 @@ env:
   # more power than that are given only to the steps that need them.
   GH_TOKEN: ${{ github.token }}
   OLYMPUS_JOBS: ${{ vars.OLYMPUS_JOBS }}
+  # The OlympusMons GitHub App, whose installation tokens push (see "The
+  # nightly" in README.md); its private key is the OLYMPUS_APP_PRIVATE_KEY
+  # secret.
+  OLYMPUS_APP_CLIENT_ID: Iv23liuQcluxh5CpjSy
 
 jobs:
   setup:
@@ -104,13 +108,32 @@ jobs:
           rm -f "$OLYMPUS_WORK"/status/* "$OLYMPUS_WORK"/logs/*.diagnostics.log
           rm -rf "$OLYMPUS_WORK/nightly"
 
-      # Seconds, not hours: can the nightly do what it is for?
+      # Seconds, not hours: can the nightly do what it is for? A push token
+      # that cannot be made is left empty, for the check to report.
+      - name: Get a push token for FStarLang
+        id: app-fstarlang
+        continue-on-error: true
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ env.OLYMPUS_APP_CLIENT_ID }}
+          private-key: ${{ secrets.OLYMPUS_APP_PRIVATE_KEY }}
+          owner: FStarLang
+
+      - name: Get a push token for project-everest
+        id: app-everest
+        continue-on-error: true
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ env.OLYMPUS_APP_CLIENT_ID }}
+          private-key: ${{ secrets.OLYMPUS_APP_PRIVATE_KEY }}
+          owner: project-everest
+
       - name: Check the secrets
         id: tokens
         env:
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
-          OLYMPUS_PUSH_TOKEN_FSTARLANG: ${{ secrets.OLYMPUS_PUSH_TOKEN_FSTARLANG }}
-          OLYMPUS_PUSH_TOKEN_PROJECT_EVEREST: ${{ secrets.OLYMPUS_PUSH_TOKEN_PROJECT_EVEREST }}
+          OLYMPUS_PUSH_TOKEN_FSTARLANG: ${{ steps.app-fstarlang.outputs.token }}
+          OLYMPUS_PUSH_TOKEN_PROJECT_EVEREST: ${{ steps.app-everest.outputs.token }}
           PUBLISH: ${{ github.event_name != 'workflow_dispatch' || inputs.publish }}
           FIX: ${{ github.event_name != 'workflow_dispatch' || inputs.fix }}
         run: scripts/nightly/preflight.sh
@@ -368,13 +391,21 @@ jobs:
             exit 1
           fi
 
+      - name: Get a push token for this repository
+        id: app
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ env.OLYMPUS_APP_CLIENT_ID }}
+          private-key: ${{ secrets.OLYMPUS_APP_PRIVATE_KEY }}
+          repositories: ${{ github.event.repository.name }}
+
       - uses: actions/checkout@v7
         with:
           ref: main
           fetch-depth: 0
           # The token is what pushes, and what makes the push start a
           # Build of the new hashes.txt (the default token's pushes do not).
-          token: ${{ secrets.OLYMPUS_PUSH_TOKEN_FSTARLANG }}
+          token: ${{ steps.app.outputs.token }}
 
       - uses: ./.github/actions/olympus-runner
 

@@ -276,28 +276,39 @@ demand: `gh workflow run Nightly`) it:
 
 ### Setting it up
 
-Three repository secrets (Settings, Secrets and variables, Actions). A token
-belongs to one organization, so pushing needs one per organization:
+Pushing is done as a GitHub App owned by FStarLang, so that no one's
+personal token has to be renewed, and any owner of the organization can
+change what it may do:
 
-* `COPILOT_GITHUB_TOKEN`: a fine-grained personal access token with the
-  "Copilot Requests" permission, of an account with Copilot.
-* `OLYMPUS_PUSH_TOKEN_FSTARLANG`: a fine-grained personal access token
-  (resource owner FStarLang) with "Contents: read and write" on this
-  repository and on pal, kuiper, pulse-verified-gc, AlgoStar, hacl-pulse and
-  atlas, and "Pull requests: read and write" on pal and hacl-pulse. (pal
-  and hacl-pulse also need "Allow auto-merge" on, in their settings, so
-  that a pull request can be queued before its checks have passed.)
-* `OLYMPUS_PUSH_TOKEN_PROJECT_EVEREST`: the same (resource owner
-  project-everest), on everparse.
+* The app has the repository permissions "Contents: read and write" and
+  "Pull requests: read and write" (and "Workflows: read and write", should a
+  repair ever need to change a project's workflows).
+* It is installed on FStarLang (this repository, pal, kuiper,
+  pulse-verified-gc, AlgoStar, hacl-pulse and atlas) and on project-everest
+  (everparse). pal and hacl-pulse also need "Allow auto-merge" on, in their
+  settings, so that a pull request can be queued before its checks have
+  passed.
+* Its client ID is `OLYMPUS_APP_CLIENT_ID` in
+  [`nightly.yml`](.github/workflows/nightly.yml) and
+  [`nightly-project.yml`](.github/workflows/nightly-project.yml), and a
+  private key of it is the repository secret `OLYMPUS_APP_PRIVATE_KEY`
+  (Settings, Secrets and variables, Actions).
 
-The push tokens are needed for publishing and for fixing. Which token pushes
-to which repository is decided by its owner, in `push_token_var_of` in
-[`scripts/lib.sh`](scripts/lib.sh); a project in a new organization needs a
-line there and a secret.
+Each job that pushes makes an installation token per organization just
+before it pushes (they last an hour), as `OLYMPUS_PUSH_TOKEN_FSTARLANG` and
+`OLYMPUS_PUSH_TOKEN_PROJECT_EVEREST`; which one pushes to which repository
+is decided by its owner, in `push_token_var_of` in
+[`scripts/lib.sh`](scripts/lib.sh). A project in a new organization needs
+the app installed there, a line in `push_token_var_of`, and a token step
+in both workflows.
 
-The **Set up** job checks, in seconds, that the secrets exist and that each
-can push to every repository it is for, and fails before anything expensive
-if not. Without `COPILOT_GITHUB_TOKEN` the nightly still runs but only
+Repairs also need the repository secret `COPILOT_GITHUB_TOKEN`: a
+fine-grained personal access token with the "Copilot Requests" permission,
+of an account with Copilot (a GitHub App cannot use Copilot).
+
+The **Set up** job checks, in seconds, that the push tokens can be made and
+that each can push to every repository it is for, and fails before anything
+expensive if not. Without `COPILOT_GITHUB_TOKEN` the nightly still runs but only
 reports, and does not publish a result that has failures. The runners need
 Node.js only for repairs, whose jobs install it and the Copilot CLI
 themselves.

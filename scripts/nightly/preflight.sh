@@ -7,7 +7,9 @@
 #
 # Environment: PUBLISH and FIX (true/false), COPILOT_GITHUB_TOKEN, and the
 # push token of each organization, OLYMPUS_PUSH_TOKEN_FSTARLANG and
-# OLYMPUS_PUSH_TOKEN_PROJECT_EVEREST (see push_token_var_of in lib.sh). Sets `fix` (true/false) in $GITHUB_OUTPUT.
+# OLYMPUS_PUSH_TOKEN_PROJECT_EVEREST (see push_token_var_of in lib.sh): in
+# CI, installation tokens of the OlympusMons GitHub App. Sets `fix`
+# (true/false) in $GITHUB_OUTPUT.
 
 # shellcheck source=scripts/lib.sh
 source "$(dirname "$0")/../lib.sh"
@@ -39,16 +41,16 @@ git -C "$probe" init -q
 git -C "$probe" -c user.name=probe -c user.email=probe@example.com commit -q --allow-empty -m probe
 can_push () {
   local repo=$1 var
-  var=$(push_token_var_of "$repo") || { echo "  $repo: no secret for its organization"; return 1; }
+  var=$(push_token_var_of "$repo") || { echo "  $repo: no push token for its organization"; return 1; }
   if ! git_push_to "$repo" "$probe" --dry-run -- HEAD:refs/heads/olympus-nightly-probe > /dev/null 2>&1; then
-    echo "  $repo: cannot push (is the secret $var set, and allowed to write there?)"
+    echo "  $repo: cannot push with \$$var (is the GitHub App installed on ${repo%%/*}, with access to $repo and \"Contents: read and write\"?)"
     return 1
   fi
   echo "  can push to $repo"
 }
 
 if [ "${PUBLISH:-true}" = true ]; then
-  can_push "$publish_repo" || problem "cannot publish: the secret for $publish_repo is missing or cannot push to it (publish=false skips this)"
+  can_push "$publish_repo" || problem "cannot publish: no push token for $publish_repo, or it cannot push there (publish=false skips this)"
 fi
 if [ "$fix" = true ]; then
   bad=()
